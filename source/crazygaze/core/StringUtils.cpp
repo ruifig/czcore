@@ -1,0 +1,197 @@
+#include "StringUtils.h"
+
+namespace cz
+{
+
+namespace
+{
+
+// As far as I've noticed, utfcpp doesn't have a ready to use function to validate a UTF16 string,
+// so this based on the utf8::utf16to8 function. Instead of throwing we return a boolean.
+template <typename u16bit_iterator>
+bool isValidUtf16_Impl(u16bit_iterator start, u16bit_iterator end)
+{
+	while (start != end) {
+		uint32_t cp = utf8::internal::mask16(*start++);
+		// Take care of surrogate pairs first
+		if (utf8::internal::is_lead_surrogate(cp)) {
+			if (start != end) {
+				uint32_t trail_surrogate = utf8::internal::mask16(*start++);
+				if (utf8::internal::is_trail_surrogate(trail_surrogate))
+					cp = (cp << 10) + trail_surrogate + utf8::internal::SURROGATE_OFFSET;
+				else
+					return false; // throw invalid_utf16(static_cast<uint16_t>(trail_surrogate));
+			}
+			else
+				return false; // throw invalid_utf16(static_cast<uint16_t>(cp));
+
+		}
+		// Lone trail surrogate
+		else if (utf8::internal::is_trail_surrogate(cp))
+			return false; // throw invalid_utf16(static_cast<uint16_t>(cp));
+	}
+
+	return true;
+}
+
+// unchecked::utf16to8 can crash if given invalid input. See https://github.com/nemtrif/utfcpp/issues/78
+// The author wants to leave it as-is, since it's in the "unckecked" namespace, so we have this function copied and adapted.
+template <typename u16bit_iterator, typename octet_iterator>
+octet_iterator utf16to8_lenient (u16bit_iterator start, u16bit_iterator end, octet_iterator result)
+{
+	while (start != end) {
+		uint32_t cp = utf8::internal::mask16(*start++);
+		// Take care of surrogate pairs first
+		if (utf8::internal::is_lead_surrogate(cp)) {
+			if (start >= end) // #RVF : This is the change compared to the original code
+				return result;
+			uint32_t trail_surrogate = utf8::internal::mask16(*start++);
+			cp = (cp << 10) + trail_surrogate + utf8::internal::SURROGATE_OFFSET;
+		}
+		result = utf8::unchecked::append(cp, result);
+	}
+	return result;
+}
+
+
+} // unnamed namespace
+
+std::wstring widen(std::string_view str)
+{
+	std::wstring result;
+	if constexpr(sizeof(std::wstring::value_type)==2)
+	{
+		utf8::unchecked::utf8to16(str.begin(), str.end(), std::back_inserter(result));
+	}
+	else
+	{
+		utf8::unchecked::utf8to32(str.begin(), str.end(), std::back_inserter(result));
+	}
+	return result;
+}
+
+std::string narrow(std::wstring_view str)
+{
+	std::string result;
+	if constexpr(sizeof(std::wstring::value_type)==2)
+	{
+		utf16to8_lenient(str.begin(), str.end(), std::back_inserter(result));
+	}
+	else
+	{
+		utf8::unchecked::utf32to8(str.begin(), str.end(), std::back_inserter(result));
+	}
+	return result;
+}
+
+std::string narrow(std::u16string_view str)
+{
+	std::string result;
+	utf16to8_lenient(str.begin(), str.end(), std::back_inserter(result));
+	return result;
+}
+
+std::string narrow(std::u32string_view str)
+{
+	std::string result;
+	utf8::unchecked::utf32to8(str.begin(), str.end(), std::back_inserter(result));
+	return result;
+}
+
+bool asciiStrEqualsCi(std::string_view str1, std::string_view str2)
+{
+	if (str1.size() != str2.size())
+	{
+		return false;
+	}
+
+	static auto tolower = [](char ch)
+	{
+		return (ch>='A' && ch<='Z') ? (ch + ('a'-'A')) : ch;
+	};
+
+	std::string_view::const_iterator it1 = str1.begin();
+	std::string_view::const_iterator it2 = str2.begin();
+	while (it1 != str1.end())
+	{
+		if (tolower(*it1) != tolower(*it2))
+		{
+			return false;
+		}
+
+		++it1;
+		++it2;
+	}
+
+	return true;
+}
+
+std::vector<std::string> stringSplitIntoLinesVector(std::string_view text, bool dropEmptyLines)
+{
+	std::vector<std::string> lines;
+	for(auto l : StringLineSplit(text, dropEmptyLines))
+	{
+		lines.emplace_back(l);
+	}
+	return lines;
+}
+
+bool whitespaceCharacter(int ch)
+{
+// See https://www.asciitable.com/
+    return
+		ch==' '  || // space
+		ch=='\t' || // tab
+		ch==0xA  || // line feed
+		ch==0xB  || // vertical tab
+		ch==0xC  || // form feed
+		ch==0xD;    // carriage return
+}
+
+void StringLineSplit::Iterator::advanceImpl()
+{
+	if (m_pos >= m_str.size())
+	{
+		m_pos = std::string_view::npos;
+		m_current = {};
+		return;
+	}
+
+	size_t start = m_pos;
+	size_t len = 0;
+
+	// Find next line ending
+	while (m_pos < m_str.size())
+	{
+		char c = m_str[m_pos];
+		if (c == '\n' || c == '\r')
+		{
+			break;
+		}
+		++m_pos;
+	}
+
+	len = m_pos - start;
+	m_current = m_str.substr(start, len);
+
+	// Handle EOLs: \n, \r, \r\n
+	if (m_pos < m_str.size())
+	{
+		if (m_str[m_pos] == '\r')
+		{
+			++m_pos;
+			if (m_pos < m_str.size() && m_str[m_pos] == '\n')
+			{
+				++m_pos;
+			}
+		}
+		else if (m_str[m_pos] == '\n')
+		{
+			++m_pos;
+		}
+	}
+}
+
+} // namespace cz
+
+
