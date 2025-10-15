@@ -1,34 +1,48 @@
-
 # ====================================================================
 # czAddConfigMacro(<target> <partialName> <macroName> <macroValue>)
 #
-# For every build configuration that contains <partialName> in its name,
-# defines the given preprocessor macro.
+# Defines <macroName>=<macroValue> for configurations whose names
+# contain <partialName>.
 #
-# Works for both single- and multi-config generators.
+# If <macroValue> is an empty string (""), the macro is defined
+# without a value (i.e., "#define MACRO").
 #
-# Example:
-#   czAddConfigMacro(czcore "Debug"       "CZ_DEBUG"       "1")
-#   czAddConfigMacro(czcore "Development" "CZ_DEVELOPMENT" "1")
-#   czAddConfigMacro(czcore "Release"     "CZ_RELEASE"     "1")
+# Examples:
+#   czAddConfigMacro(myLib "Debug"       "CZ_DEBUG"       "1")
+#   czAddConfigMacro(myLib "Release"     "CZ_RELEASE"     "1")
+#   czAddConfigMacro(myLib "Debug"       "SUPPORT_TRACELOG" "")
 # ====================================================================
 function(czAddConfigMacro target partialName macroName macroValue)
+    # Determine if macroValue is empty
+    set(has_value TRUE)
+    if("${macroValue}" STREQUAL "")
+        set(has_value FALSE)
+    endif()
+
+    # --- Multi-config generators (VS, Xcode, etc.)
     if(CMAKE_CONFIGURATION_TYPES)
-        # ---- Multi-config generators (VS, Xcode, etc.)
         foreach(cfg IN LISTS CMAKE_CONFIGURATION_TYPES)
             if(cfg MATCHES "${partialName}")
-                target_compile_definitions(${target} PUBLIC
-                    $<$<CONFIG:${cfg}>:${macroName}=${macroValue}>
-                )
+                if(has_value)
+                    target_compile_definitions(${target} PUBLIC
+                        $<$<CONFIG:${cfg}>:${macroName}=${macroValue}>
+                    )
+                else()
+                    target_compile_definitions(${target} PUBLIC
+                        $<$<CONFIG:${cfg}>:${macroName}>
+                    )
+                endif()
             endif()
         endforeach()
 
+    # --- Single-config generators (Make, Ninja, etc.)
     else()
-        # ---- Single-config generators (Ninja, Makefiles, etc.)
         if(CMAKE_BUILD_TYPE MATCHES "${partialName}")
-            target_compile_definitions(${target} PUBLIC
-                "${macroName}=${macroValue}"
-            )
+            if(has_value)
+                target_compile_definitions(${target} PUBLIC "${macroName}=${macroValue}")
+            else()
+                target_compile_definitions(${target} PUBLIC "${macroName}")
+            endif()
         endif()
     endif()
 endfunction()
