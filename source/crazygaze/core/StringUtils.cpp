@@ -126,6 +126,46 @@ bool asciiStrEqualsCi(std::string_view str1, std::string_view str2)
 	return true;
 }
 
+std::string replace(std::string_view input, std::string_view from, std::string_view to)
+{
+	std::string result;
+	result.reserve(input.size()*2);
+
+	size_t pos = 0;
+	while(true)
+	{
+		size_t idx = input.find(from, pos);
+
+		if (idx == std::string_view::npos)
+		{
+			// No more occurrences. Append the rest and finish
+			result.append(input.substr(pos));
+			break;
+		}
+
+		// append up to the match
+		result.append(input.substr(pos, idx - pos));
+		// append replacement
+		result.append(to);
+		// advance past the match
+		pos = idx + from.size();
+	}
+
+	return result;
+}
+
+std::string changeEOL(std::string_view str, EOL eol)
+{
+	std::string res;
+	for(auto l : StringLineSplit(str, false))
+	{
+		res += l;
+		res += eol==EOL::Windows ? "\x0D\x0A" : "\0A";
+	}
+
+	return res;
+}
+
 std::vector<std::string> stringSplitIntoLinesVector(std::string_view text, bool dropEmptyLines)
 {
 	std::vector<std::string> lines;

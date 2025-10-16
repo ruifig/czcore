@@ -99,9 +99,25 @@ static inline StringType trim(const StringType& s)
  */
 bool asciiStrEqualsCi(std::string_view str1, std::string_view str2);
 
+/*!
+ * Given a string_view as input, it replaces all occurences of `from` with `to`
+ */
+std::string replace(std::string_view input, std::string_view from, std::string_view to);
+
+enum class EOL
+{
+	Windows,
+	Linux,
+};
+
+/*!
+ * Changes the EOLs of the specified string
+ */
+std::string changeEOL(std::string_view str, EOL eol);
+
 /**
  * Splits a string into lines and puts them into a vector
- * This allocated memory for each line, so consider using `StringLineSplit` instead.
+ * This allocates memory for each line, so consider using `StringLineSplit` instead.
  */
 std::vector<std::string> stringSplitIntoLinesVector(std::string_view text, bool dropEmptyLines = true);
 
@@ -209,6 +225,103 @@ class StringLineSplit
   private:
 	std::string_view m_str;
 	bool m_dropEmptyLines;
+};
+
+/*!
+ * Utility that given a std::string_view and a delimiter, it allows iterating through tokens
+ *
+ * E.g:
+ *
+ *	for(auto token : StringSplit(mystr, ','))
+ *	{
+ *		CZ_LOG(Log, "{}", token);
+ *	}
+ */
+class StringSplit
+{
+  public:
+	class Iterator
+	{
+	  public:
+		using value_type = std::string_view;
+		using difference_type = std::ptrdiff_t;
+		using pointer = const std::string_view*;
+		using reference = const std::string_view&;
+		using iterator_category = std::input_iterator_tag;
+
+		Iterator(std::string_view str, char delim, size_t pos)
+			: m_str(str)
+			, m_delim(delim)
+			, m_pos(pos)
+		{
+			advance();
+		}
+
+		std::string_view operator*() const noexcept
+		{
+			return m_current;
+		}
+
+		Iterator& operator++() noexcept
+		{
+			advance();
+			return *this;
+		}
+
+		bool operator==(const Iterator& other) const noexcept
+		{
+			return m_pos == other.m_pos && m_done == other.m_done;
+		}
+
+	  private:
+		void advance() noexcept
+		{
+			if (m_pos == std::string_view::npos)
+			{
+				m_current = {};
+				m_done = true;
+				return;
+			}
+
+			size_t next = m_str.find(m_delim, m_pos);
+			if (next == std::string_view::npos)
+			{
+				m_current = m_str.substr(m_pos);
+				m_pos = std::string_view::npos;
+			}
+			else
+			{
+				m_current = m_str.substr(m_pos, next - m_pos);
+				m_pos = next + 1;
+			}
+		}
+
+		std::string_view m_str;
+		char m_delim;
+		size_t m_pos;
+		bool m_done = false;
+		std::string_view m_current;
+	};
+
+	StringSplit(std::string_view str, char delim)
+		: m_str(str)
+		, m_delim(delim)
+	{
+	}
+
+	Iterator begin() const noexcept
+	{
+		return Iterator(m_str, m_delim, 0);
+	}
+
+	Iterator end() const noexcept
+	{
+		return Iterator(m_str, m_delim, std::string_view::npos);
+	}
+
+  private:
+	std::string_view m_str;
+	char m_delim;
 };
 
 } // namespace cz

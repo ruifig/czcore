@@ -184,5 +184,30 @@ size_t File::size()
 	return size;
 }
 
+bool saveTextFile(const fs::path& path, std::string_view contents, bool saveOnlyIfChanged)
+{
+	// Changes the EOLs per OS
+	std::string tmp = changeEOL(contents, CZ_WINDOWS ? EOL::Windows : EOL::Linux);
+
+	// First, check if the contents are different. If they are the same, then we don't touch the file, so that it makes iterations faster for
+	// when there is another Visual Studio instance open with the generated games.
+	if (saveOnlyIfChanged)
+	{
+		File::Buffer current = File::readAll(path, false);
+		if (current.to_string_view() == tmp)
+		{
+			return true;
+		}
+	}
+
+	std::unique_ptr<File> out = File::open(path, File::Mode::ReadWriteNew);
+	if (!out)
+	{
+		return false;
+	}
+
+	return out->write(tmp.data(), tmp.size()) == 1 ? true : false;
+}
+
 } // namespace cz
 

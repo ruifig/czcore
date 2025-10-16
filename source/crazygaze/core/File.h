@@ -128,7 +128,7 @@ class File
 
 		Buffer(size_t size)
 		{
-			ptr = reinterpret_cast<char*>(malloc(size));
+			ptr = reinterpret_cast<char*>(malloc(size ? size : 1));
 			// IMPORTANT: `size` is intentionally NOT set here, so the caller code can set it ONLY if there was no error
 		}
 
@@ -167,7 +167,10 @@ class File
 
 		std::string_view to_string_view() const
 		{
-			return std::string_view(ptr, size);
+			if (isValid())
+				return std::string_view(ptr, size);
+			else
+				return "";
 		}
 
 		char* ptr = nullptr;
@@ -206,6 +209,16 @@ public:
 	File(const this_is_private) {}
 
 };
+
+
+/*!
+ * Saves content to a text file.
+ *
+ * \param saveOnlyIfChanged
+ *	Instead of saving to the file straight away, it first loads the existing contents, compares them, and only saves
+ *	the new data if it changed. This is to avoid changing the file timestamps.
+ */
+bool saveTextFile(const fs::path& path, std::string_view contents, bool saveOnlyIfChanged);
 
 } // namespace cz
 

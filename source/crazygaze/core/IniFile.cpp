@@ -11,7 +11,7 @@ namespace cz
 // Section
 //////////////////////////////////////////////////////////////////////////
 
-const cz::IniFile::Entry* IniFile::Section::tryGetEntry(const char* key) const
+const cz::IniFile::Entry* IniFile::Section::tryGetEntry(std::string_view key) const
 {
 	for (auto&& e : entries)
 	{
@@ -24,7 +24,7 @@ const cz::IniFile::Entry* IniFile::Section::tryGetEntry(const char* key) const
 	return nullptr;
 }
 
-IniFile::Entry& IniFile::Section::getEntry(const char* key)
+IniFile::Entry& IniFile::Section::getEntry(std::string_view key)
 {
 	for(auto&& e : entries)
 	{
@@ -32,7 +32,9 @@ IniFile::Entry& IniFile::Section::getEntry(const char* key)
 			return e;
 	}
 
-	entries.push_back({key, ""});
+	entries.emplace_back();
+	entries.back().name = key;
+	entries.back().value = "";
 	return entries.back();
 }
 
@@ -84,7 +86,7 @@ namespace details
 	bool tryInt(const std::string& str, IniFile::Value& dst)
 	{
 	#if 0
-		const char* ptr = str;
+		std::string_view ptr = str;
 		if (!ptr)
 		{
 			return {};
@@ -201,7 +203,7 @@ bool IniFile::save(const fs::path& path)
 
 	auto lineBreak = [&file]()
 	{
-		static const char* linebreak = "\r\n";
+		static std::string_view linebreak = "\r\n";
 		file->write(linebreak, strlen(linebreak));
 	};
 
@@ -229,7 +231,7 @@ bool IniFile::save(const fs::path& path)
 	return true;
 }
 
-const IniFile::Section* IniFile::tryGetSection(const char* name) const
+const IniFile::Section* IniFile::tryGetSection(std::string_view name) const
 {
 	for (auto&& s : sections)
 	{
@@ -242,7 +244,7 @@ const IniFile::Section* IniFile::tryGetSection(const char* name) const
 	return nullptr;
 }
 
-IniFile::Section& IniFile::getSection(const char* name)
+IniFile::Section& IniFile::getSection(std::string_view name)
 {
 	for (auto&& s : sections)
 	{
@@ -258,5 +260,3 @@ IniFile::Section& IniFile::getSection(const char* name)
 }
 
 } // namespace cz
-
-

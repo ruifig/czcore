@@ -18,6 +18,7 @@
 #include <variant>
 #include <queue>
 #include <condition_variable>
+#include <string_view>
 
 CZ_THIRD_PARTY_INCLUDES_START
 #include "utf8.h"
