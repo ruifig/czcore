@@ -10,7 +10,6 @@
 # Examples:
 #   czAddConfigMacro(myLib "Debug"       "CZ_DEBUG"       "1")
 #   czAddConfigMacro(myLib "Release"     "CZ_RELEASE"     "1")
-#   czAddConfigMacro(myLib "Debug"       "SUPPORT_TRACELOG" "")
 # ====================================================================
 function(czAddConfigMacro target partialName macroName macroValue)
     # Determine if macroValue is empty
