@@ -234,7 +234,7 @@ class StringLineSplit
  *
  *	for(auto token : StringSplit(mystr, ','))
  *	{
- *		CZ_LOG(Log, "{}", token);
+ *		CZ_LOG(Main, Log, "{}", token);
  *	}
  */
 class StringSplit
