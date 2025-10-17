@@ -48,7 +48,7 @@ std::string narrow(std::u32string_view str);
  };
 
 
- /**
+/**
   * Returns true if the specified character is a whitespace character
   */
 bool whitespaceCharacter(int a);
