@@ -11,13 +11,20 @@ std::string narrow(std::u16string_view str);
 std::string narrow(std::u32string_view str);
 
 /**
+ * Converts a path to std::string
+ * This makes it easier to pass to other apis
+ */
+inline std::string to_string(const std::filesystem::path& p)
+{
+	return narrow(p.native());
+}
+
+/**
  * Converts a utf8 string to a wide string (OS dependent).
  * std::wstring character width is OS dependent, so this fucntion is handy when interacting with the OS or some of the STL. E.g,
  * opening a file.
  */
  std::wstring widen(std::string_view str);
-
-
 
 /**
  * Using this, so we can use std::string as a key to the map, but not having to allocate a std::string every time we need to do a
@@ -326,4 +333,18 @@ class StringSplit
 
 } // namespace cz
 
+
+/*!
+ * Formatter for std::filesystem::path , so it can be used with the std::format functions.
+ * At the time of writing, no compiler implements this yet.
+ * See https://en.cppreference.com/w/cpp/filesystem/path/formatter
+ */
+template<>
+struct std::formatter<std::filesystem::path> : std::formatter<string_view>
+{
+	auto format(const std::filesystem::path& p, std::format_context& ctx) const
+	{
+		return std::formatter<std::string_view>::format(cz::to_string(p), ctx);
+	}
+};
 
