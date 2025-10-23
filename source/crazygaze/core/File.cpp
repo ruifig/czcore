@@ -62,7 +62,7 @@ std::unique_ptr<File> File::openImpl(const fs::path& path, Mode mode, bool raise
 	{
 		if (raiseError)
 		{
-			CZ_LOG(Main, Error, "Couldn't open file '{}', with mode '{}'.", narrow(path.c_str()), static_cast<int>(mode));
+			CZ_LOG(Main, Error, "Couldn't open file '{}', with mode '{}'.", path, static_cast<int>(mode));
 		}
 		return nullptr;
 	}

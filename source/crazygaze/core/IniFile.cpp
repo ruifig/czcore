@@ -172,7 +172,7 @@ bool IniFile::openImpl(const fs::path& path, bool logOpenError)
 			}
 			else
 			{
-				CZ_LOG(Main, Warning, "Value with no section in INI File '{}' : '{}'", narrow(path.c_str()), line);
+				CZ_LOG(Main, Warning, "Value with no section in INI File '{}' : '{}'", path, line);
 			}
 		}
 		else if (line == "")
@@ -180,7 +180,7 @@ bool IniFile::openImpl(const fs::path& path, bool logOpenError)
 		}
 		else
 		{
-			CZ_LOG(Main, Warning, "Invalid line in INI File '{}' : '{}'", narrow(path.c_str()), line);
+			CZ_LOG(Main, Warning, "Invalid line in INI File '{}' : '{}'", path, line);
 		}
 	}
 
