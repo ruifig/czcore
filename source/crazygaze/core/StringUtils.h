@@ -111,6 +111,11 @@ bool asciiStrEqualsCi(std::string_view str1, std::string_view str2);
  */
 std::string replace(std::string_view input, std::string_view from, std::string_view to);
 
+/*!
+ * Given a string_view as input, it performs multiple replacements as specified in the replacements list
+ */
+std::string replace(std::string_view input, std::initializer_list<std::pair<std::string_view, std::string_view>>&& replacements);
+
 enum class EOL
 {
 	Windows,

@@ -154,6 +154,20 @@ std::string replace(std::string_view input, std::string_view from, std::string_v
 	return result;
 }
 
+std::string replace(std::string_view input, std::initializer_list<std::pair<std::string_view, std::string_view>>&& replacements)
+{
+	std::string result;
+	for(auto&& p : replacements )
+	{
+		if (result.size() == 0)
+			result = replace(input, p.first, p.second);
+		else
+			result = replace(result, p.first, p.second);
+	}
+
+	return result;
+}
+
 std::string changeEOL(std::string_view str, EOL eol)
 {
 	std::string res;
