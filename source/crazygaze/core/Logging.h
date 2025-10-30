@@ -157,7 +157,7 @@ void setLogLevel(LogLevel level);
 		exit(1);                                                           \
 	}
 
-#if CZ_DEBUG
+#if CZ_DEBUG || CZ_DEVELOPMENT
 	#define CZ_CHECK(expr) CZ_CHECK_IMPL(expr)
 	#define CZ_CHECK_F(expr, format, ...) CZ_CHECK_F_IMPL(expr, format, ##__VA_ARGS__)
 
