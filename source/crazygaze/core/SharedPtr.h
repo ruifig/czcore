@@ -6,7 +6,7 @@
 
 /*
 This controls if memory should be cleared when the last strong reference is gone and the object destroyed.
-Since the way SharedPtr is implemented allocated memory for Control Block + Object in one go, it means the object's memory
+Since the way SharedPtr is implemented is that it allocates memory for Control Block + Object in one go, it means the object's memory
 will only be deallocated once the Control Block is also gone.
 
 This means that any code holding a raw pointer for an object that was already destroyed but still has WeakPtrs will likely still
@@ -48,9 +48,9 @@ By setting this to 1, the memory will be cleared to `0xDD` (like MS's CRT Debug 
 easier to spot these kind of bugs.
 */
 #if CZ_DEBUG || CZ_DEVELOPMENT
-	#define CZ_SHAREDPTR_CLEARMEM 1
+	#define CZ_SHAREDPTR_CLEAR_MEM 1
 #else
-	#define CZ_SHAREDPTR_CLEARMEM 0
+	#define CZ_SHAREDPTR_CLEAR_MEM 0
 #endif
 
 
@@ -70,7 +70,7 @@ namespace details
 	{
 	  public:
 
-#if CZ_SHAREDPTR_CLEARMEM
+#if CZ_SHAREDPTR_CLEAR_MEM
 		BaseSharedPtrControlBlock(size_t size) : size(size) {}
 #else
 		BaseSharedPtrControlBlock(size_t) {}
@@ -130,7 +130,7 @@ namespace details
 		unsigned int weak = 0;
 		unsigned int strong = 0;
 
-#if CZ_SHAREDPTR_CLEARMEM
+#if CZ_SHAREDPTR_CLEAR_MEM
 		// Size of the object, in bytes.
 		size_t size;
 #endif
@@ -175,7 +175,7 @@ namespace details
 			{
 				auto ptr = obj();
 				Deleter{}(ptr);
-				#if CZ_SHAREDPTR_CLEARMEM
+				#if CZ_SHAREDPTR_CLEAR_MEM
 					memset(ptr, 0xDD, size);
 				#endif
 			}

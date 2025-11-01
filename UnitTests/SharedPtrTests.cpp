@@ -707,7 +707,7 @@ TEST_CASE("SharedPtr", "[SmartPointers]")
 }
 
 // Test if the memory is being cleared when the object is destroyed but the memory not yet deallocated
-#if CZ_SHAREDPTR_CLEARMEM
+#if CZ_SHAREDPTR_CLEAR_MEM
 TEST_CASE("Memory clear", "[SmartPointers]")
 {
 	auto bar = makeShared<Bar>();
