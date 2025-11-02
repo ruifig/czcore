@@ -21,22 +21,28 @@ void doDebugBreak()
 #endif
 }
 
-static const char* logLevelsStrs[static_cast<int>(LogLevel::VeryVerbose)+1] =
+struct LogLevelStr
 {
-	"Off",
-	"FTL",
-	"ERR",
-	"WRN",
-	"LOG",
-	"VER",
-	"VVE"
+	const char* a;
+	const char* b;
+};
+
+static const LogLevelStr logLevelsStrs[static_cast<int>(LogLevel::VeryVerbose)+1] =
+{
+	{"Off", "Off"},
+	{"FTL", "Fatal"},
+	{"ERR", "Error"},
+	{"WRN", "Warning"},
+	{"LOG", "Log"},
+	{"VER", "Verbose"},
+	{"VVE", "VeryVerbose"}
 };
 
 LogLevel logLevelFromString(std::string_view str)
 {
 	for(int i = 0; i <= static_cast<int>(LogLevel::VeryVerbose); i++)
 	{
-		if (asciiStrEqualsCi(str, logLevelsStrs[i]))
+		if (asciiStrEqualsCi(str, logLevelsStrs[i].a) || asciiStrEqualsCi(str, logLevelsStrs[i].b))
 		{
 			return static_cast<LogLevel>(i);
 		}
@@ -150,7 +156,7 @@ LogCategoryBase* LogCategoryBase::find(const char* name)
 
 const char* to_string(LogLevel level)
 {
-	return details::logLevelsStrs[static_cast<int>(level)];
+	return details::logLevelsStrs[static_cast<int>(level)].a;
 }
 
 void setLogLevel(LogLevel level)
@@ -161,6 +167,25 @@ void setLogLevel(LogLevel level)
 		it->setLevel(level);
 		it = it->getNext();
 	}
+}
+
+void setLogSettings(std::string_view logSettings)
+{
+	visitKeyValues(logSettings, [](std::string_view key, std::string_view value)
+	{
+		bool isAll = asciiStrEqualsCi(key, "All");
+		LogLevel level = details::logLevelFromString(value);
+
+		LogCategoryBase* it = LogCategoryBase::getFirst();
+		while (it)
+		{
+			if (isAll || asciiStrEqualsCi(it->getName(), key))
+			{
+				it->setLevel(level);
+			}
+			it = it->getNext();
+		}
+	});
 }
 
 } // namespace cz

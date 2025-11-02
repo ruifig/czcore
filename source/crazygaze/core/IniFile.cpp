@@ -15,7 +15,7 @@ const cz::IniFile::Entry* IniFile::Section::tryGetEntry(std::string_view key) co
 {
 	for (auto&& e : entries)
 	{
-		if (e.name == key)
+		if (asciiStrEqualsCi(e.name,key))
 		{
 			return &e;
 		}
@@ -28,7 +28,7 @@ IniFile::Entry& IniFile::Section::getEntry(std::string_view key)
 {
 	for(auto&& e : entries)
 	{
-		if (e.name == key)
+		if (asciiStrEqualsCi(e.name,key))
 			return e;
 	}
 
@@ -52,76 +52,6 @@ bool IniFile::try_open(const fs::path& path)
 {
 	return openImpl(path, false);
 }
-
-#if 0
-namespace details
-{
-
-	bool isDigit(char ch)
-	{
-		return ch >= '0' && ch <= '9';
-	}
-
-	template<typename T>
-	bool tryNumber(const std::string& str, IniFile::Value& dst)
-	{
-		std::istringstream iss(str);
-		T val;
-
-		// noskipws considers leading whitespace invalid
-		iss >> std::noskipws >> val;
-		// Check the entire string was consumed and if either failbit or badbit is set
-		if (iss.eof() && !iss.fail())
-		{
-			dst = val;
-			return true;
-		}
-		else
-		{
-			return false;
-		}
-	}
-
-	#if 0
-	bool tryInt(const std::string& str, IniFile::Value& dst)
-	{
-	#if 0
-		std::string_view ptr = str;
-		if (!ptr)
-		{
-			return {};
-		}
-
-		if (*ptr=='-' || *ptr=='+')
-		{
-			ptr++;
-		}
-
-		while(*ptr)
-		{
-			if (!isDigit())
-			{
-				return {};
-			}
-			*ptr++;
-		}
-
-		return atoi(str);
-		#endif
-
-		return tryNumber<int>(str);
-	}
-
-	std::optional<float> tryFloat(const std::string& str)
-	{
-		return tryNumber<float>(str);
-	}
-	#endif
-
-} // namespace details
-
-#endif
-
 
 bool IniFile::openImpl(const fs::path& path, bool logOpenError)
 {
@@ -235,7 +165,7 @@ const IniFile::Section* IniFile::tryGetSection(std::string_view name) const
 {
 	for (auto&& s : sections)
 	{
-		if (s.name == name)
+		if (asciiStrEqualsCi(s.name, name))
 		{
 			return &s;
 		}
@@ -248,7 +178,7 @@ IniFile::Section& IniFile::getSection(std::string_view name)
 {
 	for (auto&& s : sections)
 	{
-		if (s.name == name)
+		if (asciiStrEqualsCi(s.name, name))
 		{
 			return s;
 		}

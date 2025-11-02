@@ -68,36 +68,121 @@ inline bool notWhitespaceCharacter(int ch)
 	return !whitespaceCharacter(ch);
 }
 
+namespace details
+{
+	template<class CharT>
+	constexpr std::basic_string_view<CharT> trim_wsChars()
+	{
+		static constexpr CharT w[] = {CharT(' '), CharT('\t'), CharT('\n')};
+		return {w, 3};
+	}
+
+	template<class CharT>
+	constexpr std::basic_string_view<CharT> ltrim(std::basic_string_view<CharT> s)
+	{
+		const auto start = s.find_first_not_of(trim_wsChars<CharT>());
+		return start == std::basic_string_view<CharT>::npos ? std::basic_string_view<CharT>{} : s.substr(start);
+	}
+
+	template<class CharT>
+	constexpr std::basic_string_view<CharT> rtrim(std::basic_string_view<CharT> s)
+	{
+		const auto start = s.find_last_not_of(trim_wsChars<CharT>());
+		return start == std::basic_string_view<CharT>::npos ? std::basic_string_view<CharT>{} : s.substr(0, start + 1);
+	}
+
+	template<class CharT>
+	constexpr std::basic_string_view<CharT> trim(std::basic_string_view<CharT> s)
+	{
+		return ltrim(rtrim(s));
+	}
+}
+
 /**
  * Trim the left side of a string
  */
-template <class StringType>
-static inline StringType ltrim(const StringType& s_)
+template<class CharT>
+constexpr std::basic_string_view<CharT> ltrim(const CharT* s)
 {
-	StringType s = s_;
-	s.erase(s.begin(), std::find_if(s.begin(), s.end(), notWhitespaceCharacter));
-	return s;
+	return details::ltrim<CharT>(s);
 }
 
 /**
- * Trim right side of a string
+ * Trim the right side of a string
  */
-template <class StringType>
-static inline StringType rtrim(const StringType& s_)
+template<class CharT>
+constexpr std::basic_string_view<CharT> rtrim(const CharT* s)
 {
-	StringType s = s_;
-	s.erase(std::find_if(s.rbegin(), s.rend(), notWhitespaceCharacter).base(), s.end());
-	return s;
+	return details::rtrim<CharT>(s);
 }
-
 
 /**
  * Trim both sides of a string
  */
-template <class StringType>
-static inline StringType trim(const StringType& s)
+template<class CharT>
+constexpr std::basic_string_view<CharT> trim(const CharT* s)
 {
-	return ltrim(rtrim(s));
+	return details::trim<CharT>(s);
+}
+
+/**
+ * Trim the left side of a string
+ */
+template<class CharT>
+constexpr std::basic_string_view<CharT> ltrim(std::basic_string_view<CharT> s)
+{
+	return details::ltrim<CharT>(s);
+}
+
+/**
+ * Trim the right side of a string
+ */
+template<class CharT>
+constexpr std::basic_string_view<CharT> rtrim(std::basic_string_view<CharT> s)
+{
+	return details::rtrim<CharT>(s);
+}
+
+/**
+ * Trim both sides of a string
+ */
+template<class CharT>
+constexpr std::basic_string_view<CharT> trim(std::basic_string_view<CharT> s)
+{
+	return details::trim<CharT>(s);
+}
+
+/**
+ * Trim the left side of a string
+ * Note that it returns a new string and NOT a string view, for safety reasons.
+ * If you want a string view, use the overload that takes a literal or string_view as parameter.
+ */
+template<class CharT>
+constexpr std::basic_string<CharT> ltrim(const std::basic_string<CharT>& s)
+{
+	return std::basic_string<CharT>(details::ltrim<CharT>(s));
+}
+
+/**
+ * Trim the right side of a string
+ * Note that it returns a new string and NOT a string view, for safety reasons.
+ * If you want a string view, use the overload that takes a literal or string_view as parameter.
+ */
+template<class CharT>
+constexpr std::basic_string<CharT> rtrim(const std::basic_string<CharT>& s)
+{
+	return std::basic_string<CharT>(details::rtrim<CharT>(s));
+}
+
+/**
+ * Trim both sides of a string
+ * Note that it returns a new string and NOT a string view, for safety reasons.
+ * If you want a string view, use the overload that takes a literal or string_view as parameter.
+ */
+template<class CharT>
+constexpr std::basic_string<CharT> trim(const std::basic_string<CharT>& s)
+{
+	return std::basic_string<CharT>(details::trim<CharT>(s));
 }
 
 /**
@@ -335,6 +420,40 @@ class StringSplit
 	std::string_view m_str;
 	char m_delim;
 };
+
+
+/*!
+ * Calls visitor(key, value) for each entry like "key=value" separated by commas.
+ * Invalid/empty entries are skipped; entries without '=' yield empty value.
+ */
+template <class Visitor>
+static void visitKeyValues(std::string_view input, Visitor&& visitor, char pairSep = ',', char kvSep = '=')
+{
+	while (!input.empty())
+	{
+		// Take next segment up to comma
+		std::size_t cut = input.find(pairSep);
+		std::string_view seg = (cut == std::string_view::npos) ? input : input.substr(0, cut);
+		input = (cut == std::string_view::npos) ? std::string_view{} : input.substr(cut + 1);
+
+		seg = trim(seg);
+		if (seg.empty())
+		{
+			continue;
+		}
+
+		// Split on first '='
+		std::size_t eq = seg.find(kvSep);
+		std::string_view key = trim(eq == std::string_view::npos ? seg : seg.substr(0, eq));
+		if (key.empty())
+		{
+			continue;  // no key, skip
+		}
+
+		std::string_view value = (eq == std::string_view::npos) ? std::string_view{} : trim(seg.substr(eq + 1));
+		visitor(key, value);
+	}
+}
 
 } // namespace cz
 

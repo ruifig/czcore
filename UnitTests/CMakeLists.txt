@@ -5,6 +5,7 @@ set(ALL_FILES
 	"CoreUnitTestsPch.h"
 	"FNVHashTests.cpp"
 	"SharedPtrTests.cpp"
+	"StringUtilsTests.cpp"
 	"VSOVEctorTests.cpp"
 )
 

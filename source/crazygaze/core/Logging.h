@@ -115,6 +115,18 @@ public:
  */
 void setLogLevel(LogLevel level);
 
+
+/*!
+ * Sets log levels based on a string like "Main=Log,Network=Warning"
+ *
+ * This is especially useful for setting log levels from a config file or command line.
+ * Since the level is applied in the order it shows up in the string, you can can for example set all categories to a specific
+ * level and then tweak specific categories. E.g:
+ *
+ * "All=Warning,Network=Verbose,UI=Log"
+ */
+void setLogSettings(std::string_view logSettings);
+
 } // namespace cz
 
 #define CZ_LOG_CHECK_COMPILETIME_LEVEL(name, verbosity) \
