@@ -88,7 +88,7 @@ std::wstring convertDevicePathToWin32Path(const std::wstring& devicePath)
 
 } // anonymous namespace
 
-fs::path getProcessPath()
+fs::path getProcessExe()
 {
 #if CZ_WINDOWS
 
@@ -103,8 +103,7 @@ fs::path getProcessPath()
 		if (res > 0 && res < size)
 		{
 			auto buf = convertDevicePathToWin32Path(buffer.get());
-			//return std::filesystem::path(buffer.get()).parent_path();
-			return std::filesystem::path(buf.c_str()).parent_path();
+			return std::filesystem::path(buf.c_str());
 		}
 
 		if (res != size) // Call failed
@@ -122,6 +121,11 @@ fs::path getProcessPath()
 	#error Unknown/unsupported platform
 	return "";
 #endif
+}
+
+fs::path getProcessPath()
+{
+	return getProcessExe().parent_path();
 }
 
 

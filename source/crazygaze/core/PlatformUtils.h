@@ -25,6 +25,11 @@ inline std::string getWin32Error(const char* funcname)
  */
 fs::path getProcessPath();
 
+/**
+ * Get's the process's full path and exe name
+ */
+fs::path getProcessExe();
+
 } // namespace cz
 
 
