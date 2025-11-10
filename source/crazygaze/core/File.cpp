@@ -209,5 +209,93 @@ bool saveTextFile(const fs::path& path, std::string_view contents, bool saveOnly
 	return out->write(tmp.data(), tmp.size()) == 1 ? true : false;
 }
 
+namespace
+{
+
+/*!
+ * Given a file's path, it checks the last time the file was modified, and returns a string in the format:
+ * YYYY.MM.DD-HH.mm.ss
+ * E.g: 2025.01.25-00.00.00
+ *
+ * It returns an empty string if the file doesn't exist or there was an error.
+ */
+std::string getFileTimestamp(const std::filesystem::path& filename)
+{
+	std::error_code ec;
+	if (!std::filesystem::exists(filename, ec))
+	{
+		return "";
+	}
+
+#if defined(_WIN32)
+	WIN32_FILE_ATTRIBUTE_DATA fileInfo;
+	if (!GetFileAttributesExW(filename.wstring().c_str(), GetFileExInfoStandard, &fileInfo))
+	{
+		return "";
+	}
+
+	// Convert FILETIME to ULARGE_INTEGER
+	ULARGE_INTEGER ull;
+	ull.LowPart = fileInfo.ftLastWriteTime.dwLowDateTime;
+	ull.HighPart = fileInfo.ftLastWriteTime.dwHighDateTime;
+
+	// Convert to time_t (number of 100-nanosecond intervals since Jan 1, 1601)
+	// 11644473600 is the number of seconds from 1601 to 1970
+	time_t rawtime = (time_t)((ull.QuadPart / 10000000ULL) - 11644473600ULL);
+
+#else
+	struct stat st;
+	if (stat(filename.string().c_str(), &st) != 0)
+	{
+		return "";
+	}
+
+	time_t rawtime = st.st_mtime;
+#endif
+
+	struct tm* gmt = gmtime(&rawtime);
+	if (!gmt)
+	{
+		return "";
+	}
+
+	// Temporary buffer
+	// Example of contents: 2025.01.25-23.01.01
+	char buffer[32];
+
+	snprintf(
+		buffer, sizeof(buffer), "%04d.%02d.%02d-%02d.%02d.%02d", gmt->tm_year + 1900, gmt->tm_mon + 1, gmt->tm_mday, gmt->tm_hour,
+		gmt->tm_min, gmt->tm_sec);
+
+	return buffer;
+}
+
+}
+
+bool renameFileToTimestamp(const std::filesystem::path& filename)
+{
+	std::error_code ec;
+	if (!std::filesystem::exists(filename, ec))
+	{
+		return true;
+	}
+
+	std::string timestamp = getFileTimestamp(filename);
+	std::filesystem::path dir = filename.parent_path();
+	std::filesystem::path baseName = filename.stem();
+	std::filesystem::path extension = filename.extension();
+
+	std::filesystem::path newFilename = dir / std::format("{}-{}{}", baseName.string(), timestamp, extension.string());
+	std::filesystem::rename(filename, newFilename, ec);
+	if (ec)
+	{
+		CZ_LOG(Main, Error, "Error renaming '{}' to '{}'. Error={}", filename.string(), newFilename.string(), ec.message());
+		return false;
+	}
+
+	return true;
+}
+
+
 } // namespace cz
 
