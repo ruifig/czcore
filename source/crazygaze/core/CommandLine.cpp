@@ -7,6 +7,11 @@ namespace cz
 
 bool CommandLine::init(int argc, char* argv[])
 {
+	for(int i=0; i<argc; i++)
+	{
+		m_original.push_back(argv[i]);
+	}
+
 	Param* currParam = nullptr;
 
 	int errorCount = 0;
@@ -115,6 +120,17 @@ const CommandLine::Param* CommandLine::getParam(std::string_view name, bool igno
 	}
 
 	return nullptr;
+}
+
+void CommandLine::logOriginal()
+{
+	std::string s;
+	for(auto& l : m_original)
+	{
+		s += std::format("\t{}\n", l);
+	}
+	
+	CZ_LOG(Main, Log, "Command line:\n{}", s)
 }
 
 } // namespace cz 

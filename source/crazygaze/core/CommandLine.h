@@ -159,8 +159,14 @@ class CommandLine : public Singleton<CommandLine>
 		}
 	}
 
-  private:
+	/**
+	 * Logs the original command line as passed to `init`
+	 */
+	void logOriginal();
 
+  private:
+	
+	std::vector<std::string> m_original;
 	std::vector<Param> m_params;
 };
 
