@@ -7,7 +7,7 @@
 /*
 This controls if memory should be cleared when the last strong reference is gone and the object destroyed.
 Since the way SharedPtr is implemented is that it allocates memory for Control Block + Object in one go, it means the object's memory
-will only be deallocated once the Control Block is also gone.
+will only be de-allocated once the Control Block is also gone.
 
 This means that any code holding a raw pointer for an object that was already destroyed but still has WeakPtrs will likely still
 point to the partially correct data (depending on the object's destructor).
@@ -33,11 +33,11 @@ struct Logger
 };
 
 auto foo = makeShared<MyFoo>("Hello");
-// Keep a WeakPtr means once the MyFoo object is destroyed, the memory is not actually deallocated
+// Keep a WeakPtr means once the MyFoo object is destroyed, the memory is not actually de-allocated
 WeakPtr<MyFoo> wfoo = foo;
 // Passing a raw pointer to Logger
 Logger logger(foo.get());
-// This destroys MyFoo, but doesn't deallocated the memory, because of the WeakPtr.
+// This destroys MyFoo, but doesn't de-allocate the memory, because of the WeakPtr.
 foo.reset();
 
 // BUG: "logger.ptr->str" still points "Hello", because MyFoo's destructor doesn't actually clear anything.
@@ -515,6 +515,19 @@ SharedPtr<T> makeShared(Args&& ... args)
 	static_assert(!std::is_abstract_v<T>, "Type is abstract.");
 	void* ptr = details::BaseSharedPtrControlBlock::allocBlock<T>();
 	return SharedPtr<T>(new(ptr) T(std::forward<Args>(args)...));
+}
+
+template<class T, class U>
+SharedPtr<T> static_pointer_cast(const SharedPtr<U>& other) noexcept
+{
+	return SharedPtr<T>(static_cast<T*>(other.get()));
+}
+
+template<class T, class U>
+SharedPtr<T> static_pointer_cast(SharedPtr<U>&& other) noexcept
+{
+	SharedPtr<U> other_(std::move(other));
+	return SharedPtr<T>(static_cast<T*>(other_.get()));
 }
 
 template <class T, class U, typename Deleter>
