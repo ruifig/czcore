@@ -92,5 +92,38 @@ namespace cz
 		return std::max(lower, std::min(n, upper));
 	}
 
+	/*!
+	 * Removes the first occurrence of `value` from `vec` by swapping it with the last element and popping the back.
+	 * This operation does not preserve the order of elements in the vector.
+	 */
+	template<typename T>
+	bool remove_first_unordered(std::vector<T>& vec, const T& value)
+	{
+		auto it = std::find(vec.begin(), vec.end(), value);
+		if (it != vec.end())
+		{
+			*it = vec.back();
+			vec.pop_back();
+			return true;
+		}
+
+		return false;
+	}
+
+	/*!
+	 * Removes the first occurrence of `value` from `vec`, preserving the order of elements.
+	 */
+	template<typename T>
+	bool remove_first_ordered(std::vector<T>& vec, const T& value)
+	{
+		auto it = std::find(vec.begin(), vec.end(), value);
+		if (it != vec.end())
+		{
+			vec.erase(it);
+			return true;
+		}
+		return false;
+	}
+
 } // namespace cz
 
