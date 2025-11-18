@@ -802,13 +802,15 @@ TEST_CASE("SharedRef", "[SmartPointers]")
 		}
 	}
 
+
+	// The API doesn't allow automatic conversion from SharedPtr to SharedRef. This is intentional
+	#if 0
 	SECTION("Assignment operator from SharedPtr")
 	{
 
 		//
 		// const 
 		//
-
 		{
 			SharedPtr<Foo> ptr1 = makeShared<Foo>();
 			SharedPtr<Foo> ptr2 = makeShared<Foo>();
@@ -861,8 +863,8 @@ TEST_CASE("SharedRef", "[SmartPointers]")
 			CHECK(ptr1 == nullptr);
 			CHECK(ref.use_count() == 1);
 		}
-
 	}
+	#endif
 
 	SECTION("Assignment operator from SharedRef")
 	{
@@ -912,13 +914,34 @@ TEST_CASE("SharedRef", "[SmartPointers]")
 
 	}
 
-	SECTION("Implicit conversion to SharedPtr")
+	SECTION("Conversions")
 	{
-		SharedRef<Foo> ref = makeSharedRef<Foo>();
-		CHECK(ref.use_count() == 1);
-		SharedPtr<Foo> ptr = ref;
-		CHECK(ref.use_count() == 2);
-		CHECK(ptr.use_count() == 2);
+		// Implicit conversion to SharedPtr
+		{
+			SharedRef<Foo> ref = makeSharedRef<Foo>();
+			CHECK(ref.use_count() == 1);
+			SharedPtr<Foo> ptr = ref;
+			CHECK(ref.use_count() == 2);
+			CHECK(ptr.use_count() == 2);
+		}
+		{
+			SharedRef<Foo> ref = makeSharedRef<Foo>();
+			CHECK(ref.use_count() == 1);
+			SharedPtr<Foo> ptr = ref.toSharedPtr();
+			CHECK(ref.use_count() == 2);
+			CHECK(ptr.use_count() == 2);
+		}
+
+		// SharedPtr to SharedRef conversion needs to be explicit.
+		{
+			SharedPtr<Foo> ptr = makeShared<Foo>();
+			CHECK(ptr.use_count() == 1);
+			SharedRef<Foo> ref = makeSharedRef<Foo>();;
+			ref = ptr.toSharedRef();
+			CHECK(ptr.use_count() == 2);
+			CHECK(ref.use_count() == 2);
+		}
 	}
+
 
 }

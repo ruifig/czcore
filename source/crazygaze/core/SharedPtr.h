@@ -190,6 +190,9 @@ namespace details
 	};
 }
 
+template<typename T, typename Deleter>
+class SharedRef;
+
 /**
  * A rather simplistic std::shared_ptr equivalent, that is faster than std::shared_ptr since it is NOT thread safe.
  * Things to be aware of:
@@ -344,6 +347,13 @@ class SharedPtr
 	void swap(SharedPtr& other) noexcept
 	{
 		std::swap(m_control, other.m_control);
+	}
+
+	// Explicit access to underlying SharedPtr
+	SharedRef<T, Deleter> toSharedRef() const
+	{
+		CZ_CHECK(*this);
+		return SharedRef<T,Deleter>(*this);
 	}
 
   private:
@@ -586,6 +596,7 @@ class SharedRef
 		CZ_CHECK(m_ptr.get() != nullptr);
 	}
 
+	#if 0
 	/*! Assignment from convertible SharedPtr<U> */
 	template<typename U>
 	SharedRef& operator=(const SharedPtr<U, Deleter>& other) noexcept
@@ -603,6 +614,7 @@ class SharedRef
 		m_ptr = std::move(other);
 		return *this;
 	}
+	#endif
 
 	SharedRef& operator=(const SharedRef& other) noexcept = default;
 
