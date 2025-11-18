@@ -614,6 +614,12 @@ class SharedRef
 		m_ptr = std::move(other);
 		return *this;
 	}
+	#else
+	// Don't allow assignment from SharedPtr, so the user needs to be explicit when converting.
+	template<typename U>
+	SharedRef& operator=(const SharedPtr<U, Deleter>& other) noexcept = delete;
+	template<typename U>
+	SharedRef& operator=(SharedPtr<U, Deleter>&& other) noexcept = delete;
 	#endif
 
 	SharedRef& operator=(const SharedRef& other) noexcept = default;

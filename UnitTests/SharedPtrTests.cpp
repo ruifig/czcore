@@ -943,5 +943,4 @@ TEST_CASE("SharedRef", "[SmartPointers]")
 		}
 	}
 
-
 }
