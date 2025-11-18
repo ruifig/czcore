@@ -3,6 +3,10 @@ using namespace cz;
 namespace unittests_details
 {
 	
+struct WrongBase
+{
+};
+
 struct Base
 {
 	Base()
@@ -729,3 +733,192 @@ TEST_CASE("Memory clear", "[SmartPointers]")
 
 #endif
 
+TEST_CASE("SharedRef", "[SmartPointers]")
+{
+	SECTION("makeSharedRef")
+	{
+		SharedRef<Foo> ref = makeSharedRef<Foo>();
+		CHECK(ref.use_count() == 1);
+	}
+
+	SECTION("Constructing from SharedPtr")
+	{
+		{
+			SharedPtr<Foo> ptr = makeShared<Foo>();
+			SharedRef<Foo> ref(ptr);
+			CHECK(ptr.use_count() == 2);
+		}
+
+		{
+			SharedPtr<Foo> ptr = makeShared<Foo>();
+			SharedRef<Foo> ref(std::move(ptr));
+			CHECK(ptr.get() == nullptr);
+			CHECK(ref.use_count() == 1);
+		}
+
+		// Try converting between base and derived
+		{
+			SharedPtr<Foo> ptr = makeShared<Foo>();
+			SharedRef<Base> ref(ptr);
+			CHECK(ptr.use_count() == 2);
+		}
+
+		{
+			SharedPtr<Foo> ptr = makeShared<Foo>();
+			SharedRef<Base> ref(std::move(ptr));
+			CHECK(ptr.get() == nullptr);
+			CHECK(ref.use_count() == 1);
+		}
+	}
+
+	SECTION("Constructing from SharedRef")
+	{
+		{
+			SharedRef<Foo> ref1 = makeSharedRef<Foo>();
+			SharedRef<Foo> ref2(ref1);
+			CHECK(ref2.use_count() == 2);
+		}
+
+		{
+			SharedRef<Foo> ref1 = makeSharedRef<Foo>();
+			SharedRef<Foo> ref2(std::move(ref1));
+			// Moving a SharedRef doesn't null the source
+			CHECK(ref1.toSharedPtr().get() != nullptr);
+			CHECK(ref2.toSharedPtr().get() != nullptr);
+		}
+
+		// Try converting between base and derived
+		{
+			SharedRef<Foo> ref1 = makeSharedRef<Foo>();
+			SharedRef<Base> ref2(ref1);
+			CHECK(ref2.use_count() == 2);
+		}
+		{
+			SharedRef<Foo> ref1 = makeSharedRef<Foo>();
+			SharedRef<Base> ref2(std::move(ref1));
+			// Moving a SharedRef doesn't null the source
+			CHECK(ref1.toSharedPtr().get() != nullptr);
+			CHECK(ref2.toSharedPtr().get() != nullptr);
+		}
+	}
+
+	SECTION("Assignment operator from SharedPtr")
+	{
+
+		//
+		// const 
+		//
+
+		{
+			SharedPtr<Foo> ptr1 = makeShared<Foo>();
+			SharedPtr<Foo> ptr2 = makeShared<Foo>();
+
+			SharedRef<Foo> ref(ptr2);
+			CHECK(ptr1.use_count() == 1);
+			CHECK(ptr2.use_count() == 2);
+			ref = ptr1;
+			CHECK(ptr1.use_count() == 2);
+			CHECK(ptr2.use_count() == 1);
+		}
+		// Try converting between base and derived
+		{
+			SharedPtr<Foo> ptr1 = makeShared<Foo>();
+			SharedPtr<Base> ptr2 = makeShared<Foo>();
+
+			SharedRef<Base> ref(ptr2);
+			CHECK(ptr1.use_count() == 1);
+			CHECK(ptr2.use_count() == 2);
+			ref = ptr1;
+			CHECK(ptr1.use_count() == 2);
+			CHECK(ptr2.use_count() == 1);
+		}
+
+		//
+		// rvalue
+		//
+		{
+			SharedPtr<Foo> ptr1 = makeShared<Foo>();
+
+			SharedRef<Foo> ref(makeShared<Foo>());
+			WeakPtr<Foo> weak1 = ref.toSharedPtr();
+
+			CHECK(ref.use_count() == 1);
+			ref = std::move(ptr1);
+			CHECK(weak1.expired() == true);
+			CHECK(ptr1 == nullptr);
+			CHECK(ref.use_count() == 1);
+		}
+		// Try converting between base and derived
+		{
+			SharedPtr<Foo> ptr1 = makeShared<Foo>();
+
+			SharedRef<Base> ref(makeShared<Foo>());
+			WeakPtr<Base> weak1 = ref.toSharedPtr();
+
+			CHECK(ref.use_count() == 1);
+			ref = std::move(ptr1);
+			CHECK(weak1.expired() == true);
+			CHECK(ptr1 == nullptr);
+			CHECK(ref.use_count() == 1);
+		}
+
+	}
+
+	SECTION("Assignment operator from SharedRef")
+	{
+		{
+			SharedRef<Foo> ref1 = makeSharedRef<Foo>();
+			SharedRef<Foo> ref2 = makeSharedRef<Foo>();
+
+			WeakPtr<Foo> weak1 = ref1.toSharedPtr();
+			ref1 = ref2;
+			CHECK(weak1.expired() == true);
+			CHECK(ref1.use_count() == 2);
+			CHECK(ref1.toSharedPtr().get() == ref2.toSharedPtr().get());
+		}
+		// Try converting between base and derived
+		{
+			SharedRef<Base> ref1 = makeSharedRef<Foo>();
+			SharedRef<Foo> ref2 = makeSharedRef<Foo>();
+			WeakPtr<Base> weak1 = ref1.toSharedPtr();
+			ref1 = ref2;
+			CHECK(weak1.expired() == true);
+			CHECK(ref1.use_count() == 2);
+			CHECK(ref1.toSharedPtr().get() == ref2.toSharedPtr().get());
+		}
+
+		//
+		// rvalue
+		//
+		{
+			SharedRef<Foo> ref1 = makeSharedRef<Foo>();
+			SharedRef<Foo> ref2 = makeSharedRef<Foo>();
+			WeakPtr<Foo> weak1 = ref1.toSharedPtr();
+			ref1 = std::move(ref2);
+			CHECK(weak1.expired() == true);
+			CHECK(ref1.use_count() == 2);
+			CHECK(ref1.toSharedPtr().get() == ref2.toSharedPtr().get());
+		}
+		// Try converting between base and derived
+		{
+			SharedRef<Base> ref1 = makeSharedRef<Foo>();
+			SharedRef<Foo> ref2 = makeSharedRef<Foo>();
+			WeakPtr<Base> weak1 = ref1.toSharedPtr();
+			ref1 = std::move(ref2);
+			CHECK(weak1.expired() == true);
+			CHECK(ref1.use_count() == 2);
+			CHECK(ref1.toSharedPtr().get() == ref2.toSharedPtr().get());
+		}
+
+	}
+
+	SECTION("Implicit conversion to SharedPtr")
+	{
+		SharedRef<Foo> ref = makeSharedRef<Foo>();
+		CHECK(ref.use_count() == 1);
+		SharedPtr<Foo> ptr = ref;
+		CHECK(ref.use_count() == 2);
+		CHECK(ptr.use_count() == 2);
+	}
+
+}

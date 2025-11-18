@@ -508,6 +508,184 @@ class WeakPtr
 	ControlBlock* m_control = nullptr;
 };
 
+/**
+ * SharedRef<T> : non-nullable SharedPtr<T>
+ *
+ * Invariants:
+ *  - m_ptr.get() is never nullptr.
+ *  - No default constructor.
+ *  - Construction/assignment from SharedPtr/SharedRef checks non-null
+ *
+ * This is intentionally a thin wrapper over SharedPtr<T>, so it shares the same
+ * control block and ref-counting behavior, but expresses intent in the type.
+ */
+template<typename T, typename Deleter = details::SharedPtrDefaultDeleter>
+class SharedRef
+{
+  public:
+
+	using SharedPtrT = SharedPtr<T, Deleter>;
+
+	template<typename U, typename UDeleter>
+	friend class SharedRef;
+
+	/*!
+	 * No default construction, since SharedRef must always be non-null.
+	 */
+	SharedRef() = delete;
+
+	template<typename U>
+	explicit SharedRef(const SharedPtr<U, Deleter>& other) noexcept
+		: m_ptr(other)
+	{
+		CZ_CHECK(m_ptr.get() != nullptr);
+	}
+
+	template<typename U>
+	explicit SharedRef(SharedPtr<U, Deleter>&& other) noexcept
+		: m_ptr(std::forward<SharedPtr<U, Deleter>>(other))
+	{
+		CZ_CHECK(m_ptr.get() != nullptr);
+	}
+
+	SharedRef(const SharedRef& other)
+		: m_ptr(other.m_ptr)
+	{
+		// This is not strictly necessary, since other is a SharedRef and thus non-null, but just to be safe, we check again,
+		// incase there was a bug somewhere else
+		CZ_CHECK(m_ptr.get() != nullptr);
+	}
+
+	SharedRef(SharedRef&& other)
+		: m_ptr(other.m_ptr)
+	{
+		// Note that we are NOT moving the other.m_ptr, since SharedRef must always be non-null.
+
+		// This is not strictly necessary, since other is a SharedRef and thus non-null, but just to be safe, we check again, incase there was a bug
+		// somewhere else
+		CZ_CHECK(m_ptr.get() != nullptr);
+	}
+
+	template<typename U>
+	SharedRef(const SharedRef<U, Deleter>& other)
+		: m_ptr(other.m_ptr)
+	{
+		// This is not strictly necessary, since other is a SharedRef and thus non-null, but just to be safe, we check again, incase there was a bug
+		// somewhere else
+		CZ_CHECK(m_ptr.get() != nullptr);
+	}
+
+	template<typename U>
+	SharedRef(SharedRef<U, Deleter>&& other)
+		: m_ptr(other.m_ptr)
+	{
+		// Note that we are NOT moving the other.m_ptr, since SharedRef must always be non-null.
+
+		// This is not strictly necessary, since other is a SharedRef and thus non-null, but just to be safe, we check again,
+		// incase there was a bug somewhere else
+		CZ_CHECK(m_ptr.get() != nullptr);
+	}
+
+	/*! Assignment from convertible SharedPtr<U> */
+	template<typename U>
+	SharedRef& operator=(const SharedPtr<U, Deleter>& other) noexcept
+	{
+		CZ_CHECK(other.get() != nullptr);
+		m_ptr = other;
+		return *this;
+	}
+
+	/*! Assignment from convertible SharedPtr<U> rvalue */
+	template<typename U>
+	SharedRef& operator=(SharedPtr<U, Deleter>&& other) noexcept
+	{
+		CZ_CHECK(other.get() != nullptr);
+		m_ptr = std::move(other);
+		return *this;
+	}
+
+	SharedRef& operator=(const SharedRef& other) noexcept = default;
+
+	template<typename U>
+	SharedRef& operator=(const SharedRef<U, Deleter>& other) noexcept
+	{
+		CZ_CHECK(other.m_ptr.get() != nullptr);
+		m_ptr = other.m_ptr;
+		return *this;
+	}
+
+	/*! Move assignment */
+	SharedRef& operator=(SharedRef&& other) noexcept
+	{
+		CZ_CHECK(other.m_ptr.get() != nullptr);
+		m_ptr = other.m_ptr;
+		return *this;
+	}
+
+	template<typename U>
+	SharedRef& operator=(SharedRef<U, Deleter>&& other) noexcept
+	{
+		static_assert(std::is_convertible_v<U*, T*>);
+		CZ_CHECK(other.m_ptr.get() != nullptr);
+		m_ptr = other.m_ptr;
+		return *this;
+	}
+
+	// NOTE: No operator bool(), since SharedRef is always non-null.
+
+	T* operator->() const noexcept
+	{
+		return m_ptr.get();
+	}
+
+	T& operator*() const noexcept
+	{
+		return *m_ptr.get();
+	}
+
+	T* get() const noexcept
+	{
+		return m_ptr.get();
+	}
+
+	// Expose SharedPtr-like utilities where useful
+
+	unsigned int use_count() const noexcept
+	{
+		return m_ptr.use_count();
+	}
+
+	bool unique() const noexcept
+	{
+		return m_ptr.unique();
+	}
+
+	// Explicit access to underlying SharedPtr
+	const SharedPtrT& toSharedPtr() const noexcept
+	{
+		return m_ptr;
+	}
+
+	/*!
+	 * Implicit conversion to SharedPtr<T>, so APIs taking a SharedPtr<T> can accept SharedRef<T> without changes.
+	 */
+	operator SharedPtrT() const noexcept
+	{
+		return m_ptr;
+	}
+
+	void swap(SharedRef& other) noexcept
+	{
+		m_ptr.swap(other.m_ptr);
+	}
+
+  private:
+	SharedPtrT m_ptr;
+};
+
+//
+// SharedPtr utilities
+//
 
 template <typename T, typename... Args>
 SharedPtr<T> makeShared(Args&& ... args)
@@ -554,6 +732,50 @@ std::strong_ordering operator<=>(const SharedPtr<T1, Deleter>& left, const Share
 {
 	return left.get() <=> right.get();
 }
+
+//
+// SharedRef utilities
+//
+
+template<typename T, typename... Args>
+SharedRef<T> makeSharedRef(Args&&... args)
+{
+	return SharedRef<T>(makeShared<T>(std::forward<Args>(args)...));
+}
+
+// Casting helpers similar to SharedPtr versions
+template<class T, class U, typename Deleter>
+SharedRef<T, Deleter> static_pointer_cast(const SharedRef<U, Deleter>& other) noexcept
+{
+	// other is guaranteed non-null, so resulting SharedPtr<T> is also non-null
+	SharedPtr<T, Deleter> casted = static_pointer_cast<T>(other.toSharedPtr());
+	CZ_CHECK(casted.get() != nullptr);
+	return SharedRef<T, Deleter>(casted);
+}
+
+template<class T, class U, typename Deleter>
+SharedRef<T, Deleter> static_pointer_cast(SharedRef<U, Deleter>&& other) noexcept
+{
+	SharedPtr<U, Deleter> tmp = other.toSharedPtr(); // copy, keep simple
+	SharedPtr<T, Deleter> casted = static_pointer_cast<T>(tmp);
+	CZ_CHECK(casted.get() != nullptr);
+	return SharedRef<T, Deleter>(casted);
+}
+
+// Comparisons
+
+template <class T, class U, typename Deleter>
+bool operator==(const SharedRef<T, Deleter>& left, const SharedRef<U, Deleter>& right) noexcept
+{
+	return left.get() == right.get();
+}
+
+template<typename T1, typename T2, typename Deleter>
+std::strong_ordering operator<=>(const SharedRef<T1, Deleter>& left, const SharedRef<T2, Deleter>& right) noexcept
+{
+	return left.get() <=> right.get();
+}
+
 
 
 } // namespace cz
