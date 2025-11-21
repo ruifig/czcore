@@ -38,8 +38,8 @@ namespace cz
 	}
 
 	/*
-	Less verbose way to remove items from a container
-	*/
+	 * Less verbose way to remove items from a container
+	 */
 	template<typename C, typename T>
 	auto remove(C& c, const T& v) -> decltype(c.begin())
 	{
@@ -49,8 +49,8 @@ namespace cz
 	}
 
 	/*
-	Less verbose way to remove items from a container with a predicate
-	*/
+	 * Less verbose way to remove items from a container with a predicate
+	 */
 	template<typename C, typename F>
 	auto remove_if(C& c, const F& f) -> decltype(c.begin())
 	{
@@ -74,8 +74,8 @@ namespace cz
 	}
 
 	/*
-	Returns a new container with items that fulfill the predicate
-	*/
+	 * Returns a new container with items that fulfill the predicate
+	 */
 	template<typename C, typename F>
 	C copyfrom_if(const C& c, const F& f)
 	{
