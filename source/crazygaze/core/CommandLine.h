@@ -80,7 +80,7 @@ class CommandLine : public Singleton<CommandLine>
 	 * @param dst On exit, it contains the parameters first value
 	 */
 	template<typename T>
-	bool getValue(const char* name, T& dst) const
+	bool getValue(std::string_view name, T& dst) const
 	{
 		const Param* p = getParam(name);
 		if (!p || p->values.size() == 0)
@@ -128,7 +128,7 @@ class CommandLine : public Singleton<CommandLine>
 	/**
 	 * Specialization of getValue for strings
 	 */
-	bool getValue(const char* name, std::string& dst)
+	bool getValue(std::string_view name, std::string& dst)
 	{
 		const Param* p = getParam(name);
 		if (!p || p->values.size() == 0)
@@ -146,7 +146,7 @@ class CommandLine : public Singleton<CommandLine>
 	 * defaultValue
 	 */
 	template<typename T>
-	T getValueOrDefault(const char* name, T defaultValue)
+	T getValueOrDefault(std::string_view name, T defaultValue)
 	{
 		T dst;
 		if (getValue(name, dst))
