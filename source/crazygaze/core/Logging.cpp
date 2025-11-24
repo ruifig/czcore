@@ -7,6 +7,41 @@ CZ_DEFINE_LOG_CATEGORY(Main)
 namespace cz
 {
 
+
+namespace
+{
+	struct LogLevelStr
+	{
+		const char* a;
+		const char* b;
+	};
+
+	static const LogLevelStr logLevelsStrs[static_cast<int>(LogLevel::VeryVerbose)+1] =
+	{
+		{"Off", "Off"},
+		{"FTL", "Fatal"},
+		{"ERR", "Error"},
+		{"WRN", "Warning"},
+		{"LOG", "Log"},
+		{"VER", "Verbose"},
+		{"VVE", "VeryVerbose"}
+	};
+}
+
+bool fromString(std::string_view str, LogLevel& dst)
+{
+	for(int i = 0; i <= static_cast<int>(LogLevel::VeryVerbose); i++)
+	{
+		if (asciiStrEqualsCi(str, logLevelsStrs[i].a) || asciiStrEqualsCi(str, logLevelsStrs[i].b))
+		{
+			dst = static_cast<LogLevel>(i);
+			return true;
+		}
+	}
+
+	return false;
+}
+
 namespace details
 {
 
@@ -21,36 +56,6 @@ void doDebugBreak()
 #endif
 }
 
-struct LogLevelStr
-{
-	const char* a;
-	const char* b;
-};
-
-static const LogLevelStr logLevelsStrs[static_cast<int>(LogLevel::VeryVerbose)+1] =
-{
-	{"Off", "Off"},
-	{"FTL", "Fatal"},
-	{"ERR", "Error"},
-	{"WRN", "Warning"},
-	{"LOG", "Log"},
-	{"VER", "Verbose"},
-	{"VVE", "VeryVerbose"}
-};
-
-LogLevel logLevelFromString(std::string_view str)
-{
-	for(int i = 0; i <= static_cast<int>(LogLevel::VeryVerbose); i++)
-	{
-		if (asciiStrEqualsCi(str, logLevelsStrs[i].a) || asciiStrEqualsCi(str, logLevelsStrs[i].b))
-		{
-			return static_cast<LogLevel>(i);
-		}
-	}
-
-	return LogLevel::Off;
-}
-
 /** Don't use this directly. Use the LOG macros */
 void logMessage(bool debuggerOutput, LogMessage& msg)
 {
@@ -58,7 +63,7 @@ void logMessage(bool debuggerOutput, LogMessage& msg)
 	auto nowSecs = std::chrono::time_point_cast<std::chrono::seconds>(nowMs);
 	auto ms = nowMs - nowSecs;
 	msg.timestamp = std::format("{:%H:%M:%S}:{:03d}", nowSecs, ms.count());
-	msg.formattedMsg = std::string(msg.timestamp) + ":" + msg.category->getName() + ":" + to_string(msg.level) + ": " + msg.msg + "\n";
+	msg.formattedMsg = std::format("{}:{}:{}:{}\n", msg.timestamp, msg.category->getName(), msg.level, msg.msg);
 
 	if (LogOutputs* logs = LogOutputs::tryGet())
 	{
@@ -153,10 +158,9 @@ LogCategoryBase* LogCategoryBase::find(const char* name)
 	return nullptr;
 }
 
-
-const char* to_string(LogLevel level)
+std::string_view toString(LogLevel level)
 {
-	return details::logLevelsStrs[static_cast<int>(level)].a;
+	return logLevelsStrs[static_cast<int>(level)].a;
 }
 
 void setLogLevel(LogLevel level)
@@ -174,7 +178,9 @@ void setLogSettings(std::string_view logSettings)
 	visitKeyValues(logSettings, [](std::string_view key, std::string_view value)
 	{
 		bool isAll = asciiStrEqualsCi(key, "All");
-		LogLevel level = details::logLevelFromString(value);
+		LogLevel level;
+		if (!fromString(value, level))
+			return;
 
 		LogCategoryBase* it = LogCategoryBase::getFirst();
 		while (it)

@@ -31,15 +31,7 @@ struct IniFile
 		void setValue(std::string_view key, const T& value)
 		{
 			Entry& entry = getEntry(key);
-
-			if constexpr (std::is_same_v<T, bool>)
-			{
-				entry.value = value ? "true" : "false";
-			}
-			else
-			{
-				entry.value = std::to_string(value);
-			}
+			entry.value = std::format("{}", value);
 		}
 
 		template<typename T>
@@ -50,44 +42,8 @@ struct IniFile
 			{
 				return false;
 			}
-			
-			if constexpr(std::is_same_v<T, std::string>)
-			{
-				dst = entry->value;
-				return true;
-			}
-			else if constexpr(std::is_same_v<T, bool>)
-			{
-				if (entry->value == "0" ||  asciiStrEqualsCi(entry->value, "false"))
-				{
-					dst = false;
-					return true;
-				}
-				else if (entry->value == "1" ||  asciiStrEqualsCi(entry->value, "true"))
-				{
-					dst = true;
-					return true;
-				}
-				else
-				{
-					return false;
-				}
-			}
-			else
-			{
-				std::istringstream is{ entry->value };
-				T val;
-				char c;
-				if ((is >> val) && !(is >> c))
-				{
-					dst = val;
-					return true;
-				}
-				else
-				{
-					return false;
-				}
-			}
+
+			return fromString(entry->value, dst);
 		}
 
 		inline bool getValue(std::string_view key, std::string& dst)

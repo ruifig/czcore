@@ -11,15 +11,6 @@ std::string narrow(std::u16string_view str);
 std::string narrow(std::u32string_view str);
 
 /**
- * Converts a path to std::string
- * This makes it easier to pass to other apis
- */
-inline std::string to_string(const std::filesystem::path& p)
-{
-	return narrow(p.native());
-}
-
-/**
  * Converts a utf8 string to a wide string (OS dependent).
  * std::wstring character width is OS dependent, so this fucntion is handy when interacting with the OS or some of the STL. E.g,
  * opening a file.
@@ -455,6 +446,86 @@ static void visitKeyValues(std::string_view input, Visitor&& visitor, char pairS
 	}
 }
 
+
+/*!
+ * Overloads to convert from string
+ */
+template<typename T>
+requires std::is_floating_point_v<T>
+bool fromString(std::string_view str, T& dst)
+{
+	return std::from_chars(str.data(), str.data() + str.length(), dst).ec == std::errc();
+}
+
+template<typename T>
+requires std::is_integral_v<T>
+bool fromString(std::string_view str, T& dst)
+{
+	if constexpr (std::is_same_v<T, bool>)
+	{
+		if (str == "0" || asciiStrEqualsCi(str, "false"))
+		{
+			dst = false;
+			return true;
+		}
+		else if (str == "1" || asciiStrEqualsCi(str, "true"))
+		{
+			dst = true;
+			return true;
+		}
+		else
+		{
+			return false;
+		}
+	}
+	else
+	{
+		return std::from_chars(str.data(), str.data() + str.length(), dst).ec == std::errc();
+	}
+}
+
+inline bool fromString(std::string_view str, std::string& dst)
+{
+	dst = str;
+	return true;
+}
+
+
+
+/*!
+ * Convert any type to string.
+ * The type must support std::format
+ */
+template<typename T>
+std::string toString(const T& val)
+{
+	return std::format("{}", val);
+}
+
+
+/*!
+ * Parses a delimited string into an array of values.
+ * E.g: "10,20,30" into an array of 3 integers.
+ * - T must have a `fromString(std::string_view, T&)` overload.
+ * - Returns true on success, false on failure (e.g invalid format, wrong number of elements, etc)
+ * - delim can't occur inside the values.
+ */
+template<typename T>
+bool fromDelimitedString(std::string_view str, T* dst, int count, char delim = ',')
+{
+	int idx = 0;
+	for(auto token : StringSplit(str, delim))
+	{
+		token = trim(token);
+		if (idx>=count || !fromString(token, dst[idx]))
+			return false;
+
+		++idx;
+	}
+
+	return idx == count ? true : false;
+}
+
 } // namespace cz
 
 
@@ -468,7 +539,8 @@ struct std::formatter<std::filesystem::path> : std::formatter<string_view>
 {
 	auto format(const std::filesystem::path& p, std::format_context& ctx) const
 	{
-		return std::formatter<std::string_view>::format(cz::to_string(p), ctx);
+		return std::formatter<std::string_view>::format(cz::narrow(p.native()), ctx);
 	}
 };
+
 

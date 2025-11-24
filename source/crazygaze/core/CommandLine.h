@@ -88,41 +88,7 @@ class CommandLine : public Singleton<CommandLine>
 			return false;
 		}
 
-		const std::string pval = p->values[0];
-
-		if constexpr(std::is_same_v<bool, T>)
-		{
-			if (pval == "0" || asciiStrEqualsCi(pval, "false"))
-			{
-				dst = false;
-				return true;
-			}
-			else if (pval == "1" || asciiStrEqualsCi(pval, "true"))
-			{
-				dst = true;
-				return true;
-			}
-			else
-			{
-				return false;
-			}
-		}
-		else
-		{
-			std::istringstream is{ pval};
-			T val;
-			char c;
-
-			if ((is >> val) && !(is >> c))
-			{
-				dst = val;
-				return true;
-			}
-			else
-			{
-				return false;
-			}
-		}
+		return fromString(p->values[0], dst);
 	}
 
 	/**

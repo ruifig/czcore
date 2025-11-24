@@ -17,7 +17,22 @@ enum class LogLevel
 	VeryVerbose
 };
 
-const char* to_string(LogLevel level);
+std::string_view toString(LogLevel level);
+bool fromString(std::string_view str, LogLevel& dst);
+
+} // namespace cz
+
+template<>
+struct std::formatter<cz::LogLevel> : public std::formatter<std::string_view>
+{
+	auto format(cz::LogLevel l, std::format_context& ctx) const
+	{
+		return std::format_to(ctx.out(), "{}", toString(l));
+	}
+};
+
+namespace cz
+{
 
 class LogCategoryBase;
 
@@ -54,9 +69,6 @@ namespace details
 #else
 	constexpr LogLevel compileTimeMaxLogLevel = LogLevel::Verbose;
 #endif
-
-	LogLevel logLevelFromString(std::string_view str);
-
 
 } // namespace details
 
