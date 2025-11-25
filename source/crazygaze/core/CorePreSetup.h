@@ -28,7 +28,8 @@
 		__pragma(warning(disable: 4710))  /* 'function' : function not inlined */                                                                                                                               \
 		__pragma(warning(disable: 4711))  /* "function 'function' selected for inline expansion */                                                                                                              \
 		__pragma(warning(disable: 4201))  /* nonstandard extension used: nameless struct/union */                                                                                                               \
-		__pragma(warning(disable: 5219))  /* "implicit conversion from 'type-1' to 'type-2', possible loss of data" */
+		__pragma(warning(disable: 5219))  /* "implicit conversion from 'type-1' to 'type-2', possible loss of data" */                                                                                          \
+		__pragma(warning(disable: 4865))  /* '<ENUM>': the underlying type will change from 'int' to 'unsigned int' when '/Zc:enumTypes' is specified on the command line */
 
 	#define CZ_THIRD_PARTY_INCLUDES_END \
 		__pragma(warning(pop))

@@ -490,6 +490,11 @@ inline bool fromString(std::string_view str, std::string& dst)
 	return true;
 }
 
+inline bool fromString(std::string_view str, std::filesystem::path& dst)
+{
+	dst = str;
+	return true;
+}
 
 
 /*!
