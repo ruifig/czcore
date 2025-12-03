@@ -98,6 +98,16 @@ std::string narrow(std::u32string_view str)
 	return result;
 }
 
+namespace
+{
+
+inline char asciiCharToLower(char ch)
+{
+	return (ch >= 'A' && ch <= 'Z') ? (ch + ('a' - 'A')) : ch;
+};
+
+}
+
 bool asciiStrEqualsCi(std::string_view str1, std::string_view str2)
 {
 	if (str1.size() != str2.size())
@@ -105,16 +115,11 @@ bool asciiStrEqualsCi(std::string_view str1, std::string_view str2)
 		return false;
 	}
 
-	static auto tolower = [](char ch)
-	{
-		return (ch>='A' && ch<='Z') ? (ch + ('a'-'A')) : ch;
-	};
-
 	std::string_view::const_iterator it1 = str1.begin();
 	std::string_view::const_iterator it2 = str2.begin();
 	while (it1 != str1.end())
 	{
-		if (tolower(*it1) != tolower(*it2))
+		if (asciiCharToLower(*it1) != asciiCharToLower(*it2))
 		{
 			return false;
 		}
@@ -124,6 +129,21 @@ bool asciiStrEqualsCi(std::string_view str1, std::string_view str2)
 	}
 
 	return true;
+}
+
+std::string asciiToLower(std::string_view str)
+{
+	std::string res(str);
+	asciiToLowerInPlace(res);
+	return res;
+}
+
+void asciiToLowerInPlace(std::span<char> str)
+{
+	for(auto&& ch : str)
+	{
+		ch = asciiCharToLower(ch);
+	}
 }
 
 std::string replace(std::string_view input, std::string_view from, std::string_view to)

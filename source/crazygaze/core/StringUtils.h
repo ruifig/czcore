@@ -182,6 +182,18 @@ constexpr std::basic_string<CharT> trim(const std::basic_string<CharT>& s)
  */
 bool asciiStrEqualsCi(std::string_view str1, std::string_view str2);
 
+/**
+ * Converts a string to lowercase.
+ * Only ASCII characters are converted
+ */
+[[nodiscard]] std::string asciiToLower(std::string_view str);
+
+/**
+ * Converts the specified span into lowercase, in-place.
+ * Only ASCII characters are converted
+ */
+void asciiToLowerInPlace(std::span<char> str);
+
 /*!
  * Given a string_view as input, it replaces all occurences of `from` with `to`
  */
