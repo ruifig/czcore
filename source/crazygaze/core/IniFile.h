@@ -58,6 +58,14 @@ struct IniFile
 			return true;
 		}
 
+		template<typename T>
+		T getValueOrDefault(std::string_view name, T defaultValue)
+		{
+			T dst = defaultValue;
+			getValue(name, dst);
+			return dst;
+		}
+
 		std::string name;
 		std::vector<Entry> entries;
 	};
@@ -91,6 +99,14 @@ struct IniFile
 		{
 			return false;
 		}
+	}
+
+	template<typename T>
+	T getValueOrDefault(std::string_view section, std::string_view key, T defaultValue) const
+	{
+		T dst = defaultValue;
+		getValue(section, key, dst);
+		return dst;
 	}
 
 	template<typename T>
