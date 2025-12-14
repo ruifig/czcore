@@ -156,11 +156,11 @@ void setLogSettings(std::string_view logSettings);
 				_cz_internal_msg.level = ::cz::LogLevel::logLevel;                                             \
 				_cz_internal_msg.msg = std::format(fmtStr, ##__VA_ARGS__);                                     \
 				::cz::details::logMessage(debuggerOutput, _cz_internal_msg);                                   \
-				if constexpr (::cz::LogLevel::logLevel == ::cz::LogLevel::Fatal)                               \
-				{                                                                                              \
-					::cz::details::doDebugBreak();                                                             \
-				}                                                                                              \
 			}                                                                                                  \
+		}                                                                                                      \
+		if constexpr (::cz::LogLevel::logLevel == ::cz::LogLevel::Fatal)                                       \
+		{                                                                                                      \
+			::cz::details::doDebugBreak();                                                                     \
 		}                                                                                                      \
 	}
 
