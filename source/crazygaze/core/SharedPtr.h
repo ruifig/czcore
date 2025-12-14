@@ -216,6 +216,9 @@ class SharedPtr
 	friend class WeakPtr;
 
 	template<typename U, typename UDeleter>
+	friend class ObserverPtr;
+
+	template<typename U, typename UDeleter>
 	friend class SharedPtr;
 
 	using ControlBlock = details::SharedPtrControlBlock<T, Deleter>;	
@@ -490,6 +493,168 @@ class WeakPtr
 		else
 		{
 			return SharedPtr<T, Deleter>();
+		}
+	}
+
+  private:
+
+	void releaseBlock()
+	{
+		if (m_control)
+		{
+			m_control->decWeak();
+			m_control = nullptr;
+		}
+	}
+
+	template<typename U>
+	void acquireBlock(details::SharedPtrControlBlock<U, Deleter>* control)
+	{
+		static_assert(std::is_convertible_v<U*,T*>);
+		m_control = reinterpret_cast<ControlBlock*>(control);
+		if (m_control)
+		{
+			m_control->incWeak();
+		}
+	}
+
+	ControlBlock* m_control = nullptr;
+};
+
+
+namespace details
+{
+
+template<typename T, typename Deleter = details::SharedPtrDefaultDeleter>
+class WeakPtrBase
+{
+
+};
+
+
+}
+
+
+/**
+ * ObserverPtr behaves very similar to WeakPtr, with the difference that it doesn't provide
+ * an API to promote to SharedPtr.
+ * This is useful for when a system wants to control the lifetime of objects, and outside systems
+ * need to keep references to those objects. Typically this can be solved with WeakPtr, BUT there is the danger
+ * that outside systems can promote them to SharedPtr.
+ */
+template<typename T, typename Deleter = details::SharedPtrDefaultDeleter>
+class ObserverPtr
+{
+  public:
+
+	using ControlBlock = details::SharedPtrControlBlock<T>;
+
+	template<typename U, typename UDeleter>
+	friend class ObserverPtr;
+
+	constexpr ObserverPtr() = default;
+
+	ObserverPtr(const ObserverPtr& other)
+	{
+		acquireBlock(other.m_control);
+	}
+
+	template<typename U>
+	ObserverPtr(const ObserverPtr<U, Deleter>& other) noexcept
+	{
+		static_assert(std::is_convertible_v<U*, T*>);
+		acquireBlock(other.m_control);
+	}
+
+	template<typename U>
+	ObserverPtr(const SharedPtr<U, Deleter>& other)
+	{
+		static_assert(std::is_convertible_v<U*, T*>);
+		acquireBlock(other.m_control);
+	}
+
+	ObserverPtr(ObserverPtr&& other) noexcept
+	{
+		m_control = other.m_control;
+		other.m_control = nullptr;
+	}
+
+	~ObserverPtr()
+	{
+		releaseBlock();
+	}
+
+	template<typename U>
+	ObserverPtr(ObserverPtr<U, Deleter>&& other) noexcept
+	{
+		static_assert(std::is_convertible_v<U*, T*>);
+		m_control = reinterpret_cast<ControlBlock*>(other.m_control);
+		other.m_control = nullptr;
+	}
+
+	ObserverPtr& operator=(const ObserverPtr& other)
+	{
+		ObserverPtr(other).swap(*this);
+		return *this;
+	}
+
+	template<typename U>
+	ObserverPtr& operator=(const ObserverPtr<U, Deleter>& other)
+	{
+		static_assert(std::is_convertible_v<U*, T*>);
+		ObserverPtr(other).swap(*this);
+		return *this;
+	}
+
+	template<typename U>
+	ObserverPtr& operator=(const SharedPtr<U, Deleter>& other)
+	{
+		static_assert(std::is_convertible_v<U*, T*>);
+		ObserverPtr(other).swap(*this);
+		return *this;
+	}
+
+	template<typename U>
+	ObserverPtr& operator=(ObserverPtr<U, Deleter>&& other)
+	{
+		static_assert(std::is_convertible_v<U*, T*>);
+		ObserverPtr(std::move(other)).swap(*this);
+		return *this;
+	}
+
+	void reset() noexcept
+	{
+		ObserverPtr{}.swap(*this);
+	}
+
+	void swap(ObserverPtr& other) noexcept
+	{
+		std::swap(m_control, other.m_control);
+	}
+
+	unsigned int use_count() const
+	{
+		return (m_control) ? m_control->strongRefs() : 0;
+	}
+
+	bool expired() const
+	{
+		return use_count() == 0 ? true : false;
+	}
+
+	T* get()
+	{
+		if (use_count())
+		{
+			return m_control->obj();
+		}
+		else
+		{
+			// If expired, then release the block.
+			// This is so WeakPtr/ObserverPtr release control blocks as soon as possible (to free up memory)
+			if (m_control)
+				releaseBlock();
+			return nullptr;
 		}
 	}
 
