@@ -212,11 +212,8 @@ class SharedPtr
 {
   public:
 
-	template<typename U, typename UDeleter>
-	friend class WeakPtr;
-
-	template<typename U, typename UDeleter>
-	friend class ObserverPtr;
+	template<typename U, typename UDeleter, bool IsObserver>
+	friend class WeakPtrImpl;
 
 	template<typename U, typename UDeleter>
 	friend class SharedPtr;
@@ -384,92 +381,92 @@ class SharedPtr
 	ControlBlock* m_control = nullptr;
 };
 
-template<typename T, typename Deleter = details::SharedPtrDefaultDeleter>
-class WeakPtr
+template<typename T, typename Deleter, bool IsObserver>
+class WeakPtrImpl
 {
   public:
 
 	using ControlBlock = details::SharedPtrControlBlock<T>;
 
-	template<typename U, typename UDeleter>
-	friend class WeakPtr;
+	template<typename U, typename UDeleter, bool IsObserver>
+	friend class WeakPtrImpl;
 
-	constexpr WeakPtr() = default;
+	constexpr WeakPtrImpl() = default;
 
-	WeakPtr(const WeakPtr& other)
+	WeakPtrImpl(const WeakPtrImpl& other)
 	{
 		acquireBlock(other.m_control);
 	}
 
-	template<typename U>
-	WeakPtr(const WeakPtr<U, Deleter>& other) noexcept
-	{
-		static_assert(std::is_convertible_v<U*, T*>);
-		acquireBlock(other.m_control);
-	}
-
-	template<typename U>
-	WeakPtr(const SharedPtr<U, Deleter>& other)
+	template<typename U, bool IsObserver>
+	WeakPtrImpl(const WeakPtrImpl<U, Deleter, IsObserver>& other) noexcept
 	{
 		static_assert(std::is_convertible_v<U*, T*>);
 		acquireBlock(other.m_control);
 	}
 
-	WeakPtr(WeakPtr&& other) noexcept
+	template<typename U>
+	WeakPtrImpl(const SharedPtr<U, Deleter>& other)
+	{
+		static_assert(std::is_convertible_v<U*, T*>);
+		acquireBlock(other.m_control);
+	}
+
+	WeakPtrImpl(WeakPtrImpl&& other) noexcept
 	{
 		m_control = other.m_control;
 		other.m_control = nullptr;
 	}
 
-	~WeakPtr()
+	~WeakPtrImpl()
 	{
 		releaseBlock();
 	}
 
-	template<typename U>
-	WeakPtr(WeakPtr<U, Deleter>&& other) noexcept
+	template<typename U, bool IsObserver>
+	WeakPtrImpl(WeakPtrImpl<U, Deleter, IsObserver>&& other) noexcept
 	{
 		static_assert(std::is_convertible_v<U*, T*>);
 		m_control = reinterpret_cast<ControlBlock*>(other.m_control);
 		other.m_control = nullptr;
 	}
 
-	WeakPtr& operator=(const WeakPtr& other)
+	WeakPtrImpl& operator=(const WeakPtrImpl& other)
 	{
-		WeakPtr(other).swap(*this);
+		WeakPtrImpl(other).swap(*this);
+		return *this;
+	}
+
+	template<typename U, bool IsObserver>
+	WeakPtrImpl& operator=(const WeakPtrImpl<U, Deleter, IsObserver>& other)
+	{
+		static_assert(std::is_convertible_v<U*, T*>);
+		WeakPtrImpl(other).swap(*this);
 		return *this;
 	}
 
 	template<typename U>
-	WeakPtr& operator=(const WeakPtr<U, Deleter>& other)
+	WeakPtrImpl& operator=(const SharedPtr<U, Deleter>& other)
 	{
 		static_assert(std::is_convertible_v<U*, T*>);
-		WeakPtr(other).swap(*this);
+		WeakPtrImpl(other).swap(*this);
 		return *this;
 	}
 
-	template<typename U>
-	WeakPtr& operator=(const SharedPtr<U, Deleter>& other)
+	template<typename U, bool IsObserver>
+	WeakPtrImpl& operator=(WeakPtrImpl<U, Deleter, IsObserver>&& other)
 	{
 		static_assert(std::is_convertible_v<U*, T*>);
-		WeakPtr(other).swap(*this);
-		return *this;
-	}
-
-	template<typename U>
-	WeakPtr& operator=(WeakPtr<U, Deleter>&& other)
-	{
-		static_assert(std::is_convertible_v<U*, T*>);
-		WeakPtr(std::move(other)).swap(*this);
+		WeakPtrImpl(std::move(other)).swap(*this);
 		return *this;
 	}
 
 	void reset() noexcept
 	{
-		WeakPtr{}.swap(*this);
+		WeakPtrImpl{}.swap(*this);
 	}
 
-	void swap(WeakPtr& other) noexcept
+	void swap(WeakPtrImpl& other) noexcept
 	{
 		std::swap(m_control, other.m_control);
 	}
@@ -484,6 +481,10 @@ class WeakPtr
 		return use_count() == 0 ? true : false;
 	}
 
+	/**
+	 * Promotes the WeakPtr to a SharedPtr.
+	 */
+	template<bool B = IsObserver, typename = std::enable_if_t<!B>> 
 	SharedPtr<T, Deleter> lock() const
 	{
 		if (use_count())
@@ -496,153 +497,11 @@ class WeakPtr
 		}
 	}
 
-  private:
-
-	void releaseBlock()
-	{
-		if (m_control)
-		{
-			m_control->decWeak();
-			m_control = nullptr;
-		}
-	}
-
-	template<typename U>
-	void acquireBlock(details::SharedPtrControlBlock<U, Deleter>* control)
-	{
-		static_assert(std::is_convertible_v<U*,T*>);
-		m_control = reinterpret_cast<ControlBlock*>(control);
-		if (m_control)
-		{
-			m_control->incWeak();
-		}
-	}
-
-	ControlBlock* m_control = nullptr;
-};
-
-
-namespace details
-{
-
-template<typename T, typename Deleter = details::SharedPtrDefaultDeleter>
-class WeakPtrBase
-{
-
-};
-
-
-}
-
-
-/**
- * ObserverPtr behaves very similar to WeakPtr, with the difference that it doesn't provide
- * an API to promote to SharedPtr.
- * This is useful for when a system wants to control the lifetime of objects, and outside systems
- * need to keep references to those objects. Typically this can be solved with WeakPtr, BUT there is the danger
- * that outside systems can promote them to SharedPtr.
- */
-template<typename T, typename Deleter = details::SharedPtrDefaultDeleter>
-class ObserverPtr
-{
-  public:
-
-	using ControlBlock = details::SharedPtrControlBlock<T>;
-
-	template<typename U, typename UDeleter>
-	friend class ObserverPtr;
-
-	constexpr ObserverPtr() = default;
-
-	ObserverPtr(const ObserverPtr& other)
-	{
-		acquireBlock(other.m_control);
-	}
-
-	template<typename U>
-	ObserverPtr(const ObserverPtr<U, Deleter>& other) noexcept
-	{
-		static_assert(std::is_convertible_v<U*, T*>);
-		acquireBlock(other.m_control);
-	}
-
-	template<typename U>
-	ObserverPtr(const SharedPtr<U, Deleter>& other)
-	{
-		static_assert(std::is_convertible_v<U*, T*>);
-		acquireBlock(other.m_control);
-	}
-
-	ObserverPtr(ObserverPtr&& other) noexcept
-	{
-		m_control = other.m_control;
-		other.m_control = nullptr;
-	}
-
-	~ObserverPtr()
-	{
-		releaseBlock();
-	}
-
-	template<typename U>
-	ObserverPtr(ObserverPtr<U, Deleter>&& other) noexcept
-	{
-		static_assert(std::is_convertible_v<U*, T*>);
-		m_control = reinterpret_cast<ControlBlock*>(other.m_control);
-		other.m_control = nullptr;
-	}
-
-	ObserverPtr& operator=(const ObserverPtr& other)
-	{
-		ObserverPtr(other).swap(*this);
-		return *this;
-	}
-
-	template<typename U>
-	ObserverPtr& operator=(const ObserverPtr<U, Deleter>& other)
-	{
-		static_assert(std::is_convertible_v<U*, T*>);
-		ObserverPtr(other).swap(*this);
-		return *this;
-	}
-
-	template<typename U>
-	ObserverPtr& operator=(const SharedPtr<U, Deleter>& other)
-	{
-		static_assert(std::is_convertible_v<U*, T*>);
-		ObserverPtr(other).swap(*this);
-		return *this;
-	}
-
-	template<typename U>
-	ObserverPtr& operator=(ObserverPtr<U, Deleter>&& other)
-	{
-		static_assert(std::is_convertible_v<U*, T*>);
-		ObserverPtr(std::move(other)).swap(*this);
-		return *this;
-	}
-
-	void reset() noexcept
-	{
-		ObserverPtr{}.swap(*this);
-	}
-
-	void swap(ObserverPtr& other) noexcept
-	{
-		std::swap(m_control, other.m_control);
-	}
-
-	unsigned int use_count() const
-	{
-		return (m_control) ? m_control->strongRefs() : 0;
-	}
-
-	bool expired() const
-	{
-		return use_count() == 0 ? true : false;
-	}
-
-	T* get()
+	/**
+	 * Gets the raw pointer. This is only available for ObserverPtr.
+	 */
+	template<bool B = IsObserver, typename = std::enable_if_t<B>> 
+	T* tryGet()
 	{
 		if (use_count())
 		{
@@ -654,6 +513,7 @@ class ObserverPtr
 			// This is so WeakPtr/ObserverPtr release control blocks as soon as possible (to free up memory)
 			if (m_control)
 				releaseBlock();
+
 			return nullptr;
 		}
 	}
@@ -682,6 +542,12 @@ class ObserverPtr
 
 	ControlBlock* m_control = nullptr;
 };
+
+template <typename T, typename Deleter = details::SharedPtrDefaultDeleter>
+using WeakPtr = WeakPtrImpl<T, Deleter, false>;
+
+template <typename T, typename Deleter = details::SharedPtrDefaultDeleter>
+using ObserverPtr = WeakPtrImpl<T, Deleter, true>;
 
 /**
  * SharedRef<T> : non-nullable SharedPtr<T>
