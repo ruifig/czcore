@@ -944,3 +944,14 @@ TEST_CASE("SharedRef", "[SmartPointers]")
 	}
 
 }
+
+TEST_CASE("ObserverPtr", "[SmartPointers]")
+{
+	SharedPtr<Foo> foo = makeShared<Foo>();
+	WeakPtr<Foo> w1 = foo;
+	ObserverPtr<Foo> o1(w1);
+
+	CHECK(w1.use_count() == 1);
+	CHECK(w1.lock().get() != nullptr);
+	CHECK(o1.tryGet() != nullptr);
+}
