@@ -38,8 +38,8 @@ struct pointer_comp
 		{
 		}
 
-		template <class U>
-		helper(ObjectPtr<U> const& sp)
+		template <class U, typename Deleter>
+		helper(SharedPtr<U, Deleter> const& sp)
 			: ptr(sp.get())
 		{
 		}
