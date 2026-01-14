@@ -63,7 +63,7 @@ void logMessage(bool debuggerOutput, LogMessage& msg)
 	auto nowSecs = std::chrono::time_point_cast<std::chrono::seconds>(nowMs);
 	auto ms = nowMs - nowSecs;
 	msg.timestamp = std::format("{:%H:%M:%S}:{:03d}", nowSecs, ms.count());
-	msg.formattedMsg = std::format("{}:{}:{}:{}\n", msg.timestamp, msg.category->getName(), msg.level, msg.msg);
+	msg.formattedMsg = std::format("{}:{}:{}:{}{}\n", msg.timestamp, msg.category->getName(), msg.level, msg.context, msg.msg);
 
 	if (LogOutputs* logs = LogOutputs::tryGet())
 	{
