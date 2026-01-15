@@ -46,6 +46,9 @@ static void printfLogMessageNoColour(LogMessage& msg)
 
 LogOutputs::LogOutputs(bool colouredDefaultOutput)
 {
+	#if CZ_WINDOWS
+		SetConsoleOutputCP(CP_UTF8);
+	#endif
 	if (colouredDefaultOutput)
 		add(this, printfLogMessage);
 	else

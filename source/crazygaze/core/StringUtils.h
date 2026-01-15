@@ -1,5 +1,7 @@
 #pragma once
 
+#include <array>
+
 namespace cz
 {
 
@@ -561,3 +563,13 @@ struct std::formatter<std::filesystem::path> : std::formatter<string_view>
 };
 
 
+/*!
+ * Given a codepoint, returns its UTF8 representation as a char array.
+ * It doesn't check if the codepoint is valid.
+ */
+inline std::array<char, 5> codepointToUtf8(uint32_t cp)
+{
+	std::array<char, 5> result = {};
+	utf8::unchecked::append(cp, result.begin());
+	return result;
+}
