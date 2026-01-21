@@ -38,12 +38,12 @@ class FileLogOutput
   private:
 	void logMsg(LogMessage& msg);
 
-	void flush();
+	void finish();
 
 	AsyncCommandQueueAutomatic m_q;
 	std::ofstream m_file;
 	std::string m_filename;
-	Semaphore m_finish;
+	Semaphore m_finished;
 };
 
 } // namespace cz

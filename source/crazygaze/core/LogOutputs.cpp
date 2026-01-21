@@ -179,21 +179,24 @@ void FileLogOutput::logMsg(LogMessage& msg)
 	});
 }
 
-void FileLogOutput::flush()
+void FileLogOutput::finish()
 {
 	m_q.send([this]()
 	{
 		m_file.flush();
+		m_finished.notify();
 	});
 }
 
 FileLogOutput::~FileLogOutput()
 {
-	flush();
+	finish();
 	if (!m_file.is_open())
 	{
 		return;
 	}
+
+	m_finished.wait();
 
 	if (LogOutputs* outputs = LogOutputs::tryGet())
 	{
