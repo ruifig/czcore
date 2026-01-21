@@ -189,6 +189,7 @@ void FileLogOutput::flush()
 
 FileLogOutput::~FileLogOutput()
 {
+	flush();
 	if (!m_file.is_open())
 	{
 		return;
