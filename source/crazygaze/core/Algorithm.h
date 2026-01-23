@@ -20,9 +20,9 @@ namespace cz
 	Same as std::find_if, but uses the full container range.
 	*/
 	template<typename C, typename F>
-	auto find_if(C& c, const F& f) -> decltype(c.begin())
+	auto find_if(C& c, F&& f) -> decltype(c.begin())
 	{
-		return std::find_if(c.begin(), c.end(), f);
+		return std::find_if(c.begin(), c.end(), std::forward<F>(f));
 	}
 
 	template<typename C, typename T>
@@ -32,9 +32,9 @@ namespace cz
 	}
 
 	template<typename C, typename F>
-	bool exists_if(C& c, const F& f)
+	bool exists_if(C& c, F&& f)
 	{
-		return std::find_if(c.begin(), c.end(), f)!=c.end();
+		return std::find_if(c.begin(), c.end(), std::forward<F>(f))!=c.end();
 	}
 
 	/*
@@ -52,10 +52,10 @@ namespace cz
 	 * Less verbose way to remove items from a container with a predicate
 	 */
 	template<typename C, typename F>
-	auto remove_if(C& c, const F& f) -> decltype(c.begin())
+	auto remove_if(C& c, F&& f) -> decltype(c.begin())
 	{
 		return c.erase(
-			std::remove_if(c.begin(), c.end(), f),
+			std::remove_if(c.begin(), c.end(), std::forward<F>(f)),
 			c.end());
 	}
 
@@ -63,7 +63,7 @@ namespace cz
 	* For use with maps only
 	*/
 	template< typename Container, typename Predicate>
-	void map_remove_if(Container& items, const Predicate& predicate)
+	void map_remove_if(Container& items, Predicate&& predicate)
 	{
 		for (auto it = items.begin(); it != items.end();) {
 			if (predicate(*it))
@@ -77,7 +77,7 @@ namespace cz
 	 * Returns a new container with items that fulfill the predicate
 	 */
 	template<typename C, typename F>
-	C copyfrom_if(const C& c, const F& f)
+	C copyfrom_if(const C& c, F&& f)
 	{
 		C res;
 		for(const auto& i : c)
