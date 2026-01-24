@@ -26,7 +26,7 @@ namespace cz
  *
  * The best use case for this container is to create cache friend command queues.
  */
-template<typename T, typename SizeType_ = uint32_t>
+template<typename T, typename SizeType_ = size_t>
 class PolyChunkVector
 {
   protected:
@@ -36,26 +36,19 @@ class PolyChunkVector
 		CZ_DELETE_COPY_AND_MOVE(Chunk);
 		explicit Chunk(size_t capacity)
 		{
-			num = counter++;
 			mem = static_cast<uint8_t*>(malloc(capacity));
 			cap = capacity;
-			std::println(" Chunk() : {}", num);
 		}
 
 		~Chunk()
 		{
 			assert(usedCap == 0);
-			std::println("~Chunk() : {}", num);
 			free(mem);
 		}
 		uint8_t* mem;
 		size_t usedCap = 0;
 		size_t cap;
 		Chunk* next = nullptr;
-
-		// #CZGE : Remove these
-		inline static int counter = 0;
-		int num;
 	};
 
   public:
@@ -185,14 +178,11 @@ class PolyChunkVector
 
 		Iterator& operator++()
 		{
+			assert(c);
 			Header* h = reinterpret_cast<Header*>(c->mem + pos);
 			pos += h->stride;
-			if (pos >= c->usedCap)
-			{
-				// Move to next chunk
-				c = c->next;
-				pos = 0;
-			}
+
+			skip();
 
 			return *this;
 		}
@@ -206,11 +196,30 @@ class PolyChunkVector
 		{
 			return !(*this == other);
 		}
+
+		private:
+
+		friend PolyChunkVector;
+
+		// Skips until it finds an element (or the end of the chain)
+		void skip()
+		{
+			// Skip empty chunks until we find the next item (or the end of the chain)
+			while (c && pos >= c->usedCap)
+			{
+				// Move to next chunk
+				c = c->next;
+				pos = 0;
+			}
+		}
 	};
 
 	Iterator begin()
 	{
-		return Iterator{m_head, 0};
+		Iterator it{m_head, 0};
+		// Since the chunk chain can have holes with empty chunks, we need to advance to the first valid element
+		it.skip();
+		return it;
 	}
 
 	Iterator end()
@@ -241,41 +250,30 @@ class PolyChunkVector
 	{ 
 		chunkCapacity = roundUpToMultipleOf(std::max(sizeof(Header) + sizeof(T), chunkCapacity), alignof(T));
 
-		// NOTE:
-		// Since we can keep the chunks when clearing the container, it means m_tail is not necessarily the
-		// last in the chain.
-		if (m_tail && m_tail->next)
+		// Case for when there is no chunks yet.
+		if (!m_tail)
 		{
-			assert(m_tail->next->usedCap == 0);
-
-			if (m_tail->next->cap >= chunkCapacity)
-			{
-				// If the next chunk is big enough, use it.
-				m_tail = m_tail->next;
-			}
-			else
-			{
-				// If not, then deallocate it and replace with another one big enough, making sure not to break the chain
-				Chunk* n = m_tail->next->next;
-				delete m_tail->next;
-				m_tail->next = new Chunk(chunkCapacity);
-				m_tail->next->next = n; // Restore the link
-				m_tail = m_tail->next;
-			}
-		}
-		else
-		{
+			assert(m_numElements == 0);
 			Chunk* c = new Chunk(chunkCapacity);
-			if (m_tail)
-			{
-				m_tail->next = c;
-				m_tail = c;
-			}
-			else
-			{
-				m_head = m_tail = c;
-			}
+			m_head = m_tail = c;
+			return;
 		}
+
+		// Try to find any existing chunk that has enough capacity
+		while(m_tail->next)
+		{
+			m_tail = m_tail->next;
+			// By definition any chunks we are transversing should be empty
+			assert(m_tail->usedCap == 0);
+
+			// Found an empty chunk that is big enough
+			if (m_tail->cap >= chunkCapacity)
+				return;
+		}
+
+		// There was no chunk big enough, so allocate one at the end of the chain
+		m_tail->next = new Chunk(chunkCapacity);
+		m_tail = m_tail->next;
 	}
 
 	/**

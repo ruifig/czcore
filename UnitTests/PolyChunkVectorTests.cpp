@@ -6,10 +6,9 @@
 // TODO
 // X - Test when 1 single object is larger than chunk size
 //		X - Test when sizeof(Header)+sizeof(Derived) is exactly equal and larger than chunk size
-//		- Test when there is an already allocated free chunk, but it's smaller than the needed size.
-//			- In such cases it should deallocate the chunk and replace	with a new one.
-// - Test oob data
+//		X - Test when there is an already allocated free chunk, but it's smaller than the needed size.
 // X - Test if all chunks are deleted
+// - Test oob data
 
 using namespace cz;
 
@@ -75,15 +74,15 @@ void checkCounters()
 	CHECK(Foo::creationNum == Foo::destructionNum);
 }
 
-} // anomymous namespace
+} // anonymous namespace
 
 // Create a testable container
 class PV : public PolyChunkVector<Base>
 {
   public:
 	using PolyChunkVector::PolyChunkVector;
-	static constexpr size_t baseSize = sizeof(Header) + sizeof(Base);
-	static constexpr size_t fooSize = sizeof(Header) + sizeof(Foo);
+	static constexpr int baseSize = sizeof(Header) + sizeof(Base);
+	static constexpr int fooSize  = sizeof(Header) + sizeof(Foo);
 
 	/**
 	 * Used just for debugging
@@ -106,6 +105,19 @@ class PV : public PolyChunkVector<Base>
 	}
 
 	/**
+	 * Returns a vector of pairs, with each pair being the used (first) and total capacity of each chunk (second)
+	 */
+	std::vector<std::pair<int, int>> _dbgGetChunks() const
+	{
+		std::vector<std::pair<int, int>> chunks;
+		for (const Chunk* c = m_head; c != nullptr; c = c->next)
+		{
+			chunks.emplace_back(static_cast<int>(c->usedCap), static_cast<int>(c->cap));
+		}
+		return chunks;
+	}
+
+	/**
 	 * Used just for debugging.
 	 * It returns the used and total capacity of the current chunk
 	 */
@@ -116,12 +128,22 @@ class PV : public PolyChunkVector<Base>
 		else
 			return {};
 	}
-
 };
+
+void checkChunks(const PV& v, const std::vector<std::pair<int, int>>& expected)
+{
+	auto chunks = v._dbgGetChunks();
+	CHECK(chunks.size() == expected.size());
+	for (size_t i = 0; i < expected.size(); i++)
+	{
+		CHECK(chunks[i].first == expected[i].first);
+		CHECK(chunks[i].second == expected[i].second);
+	}
+}
 
 TEST_CASE("PolyChunkVector", "[PolyChunkVector]")
 {
-	SECTION("")
+	SECTION("2 full chunks")
 	{
 		resetCounters();
 		CZ_SCOPE_EXIT { checkCounters(); };
@@ -130,47 +152,38 @@ TEST_CASE("PolyChunkVector", "[PolyChunkVector]")
 
 		PV v(sizeof(Base));
 
-		CHECK(v._dbgGetNumChunks() == std::make_pair(0, 1));
 		// We tried to initialize with sizeof(Base), but it gets aligned, because it needs to fit at least 1 header + 1 object
-		CHECK(v._dbgCheckTailUsedCapacity() == std::make_pair(0, PV::baseSize));
+		checkChunks(v, {{0, PV::baseSize}});
 
 		// Use one chunk completely
 		v.emplace_back<Base>(0x1122334455667788u);
-		CHECK(v._dbgGetNumChunks() == std::make_pair(1, 0));
-		CHECK(v._dbgCheckTailUsedCapacity() == std::make_pair(PV::baseSize, PV::baseSize));
+		checkChunks(v, {{PV::baseSize, PV::baseSize}});
 
 		// Use the second chunk completely
 		v.emplace_back<Base>(0x1122334455667788u);
-		CHECK(v._dbgGetNumChunks() == std::make_pair(2, 0));
-		CHECK(v._dbgCheckTailUsedCapacity() == std::make_pair(PV::baseSize, PV::baseSize));
-		CHECK(v.calcCapacity().first == PV::baseSize * 2);
+		checkChunks(v, {{PV::baseSize, PV::baseSize}, {PV::baseSize, PV::baseSize}});
 
 		v.clear();
-		CHECK(v._dbgGetNumChunks() == std::make_pair(0, 2));
-		CHECK(v.calcCapacity() == std::make_pair(0, PV::baseSize * 2));
+		checkChunks(v, {{0, PV::baseSize}, {0, PV::baseSize}});
 	}
 
-	SECTION("")
+	SECTION("2 partially used chunks")
 	{
 		resetCounters();
 		CZ_SCOPE_EXIT { checkCounters(); };
 
-		constexpr size_t chunkSize = PV::baseSize + 16;
+		constexpr int chunkSize = PV::baseSize + 16;
 		PV v(chunkSize);
 
-		CHECK(v._dbgGetNumChunks() == std::make_pair(0, 1));
-		CHECK(v._dbgCheckTailUsedCapacity() == std::make_pair(0, chunkSize));
+		checkChunks(v, {{0, chunkSize}});
 
 		// Use one chunk partially
 		v.emplace_back<Base>(0x1122334455667788u);
-		CHECK(v._dbgGetNumChunks() == std::make_pair(1, 0));
-		CHECK(v._dbgCheckTailUsedCapacity() == std::make_pair(PV::baseSize, chunkSize));
+		checkChunks(v, {{PV::baseSize, chunkSize}});
 
 		// Try to insert something that doesn't fit in the first chunk even tough it has some space left
 		v.emplace_back<Base>(0x1122334455667788u);
-		CHECK(v._dbgGetNumChunks() == std::make_pair(2, 0));
-		CHECK(v._dbgCheckTailUsedCapacity() == std::make_pair(PV::baseSize, chunkSize));
-		CHECK(v.calcCapacity() == std::make_pair(PV::baseSize * 2, chunkSize * 2));
+		checkChunks(v, {{PV::baseSize, chunkSize}, {PV::baseSize, chunkSize}});
 	}
 
 	SECTION("Iterators")
@@ -178,16 +191,19 @@ TEST_CASE("PolyChunkVector", "[PolyChunkVector]")
 		resetCounters();
 		CZ_SCOPE_EXIT { checkCounters(); };
 
-		constexpr size_t chunkSize = PV::baseSize + 8;
+		constexpr int chunkSize = PV::baseSize + 8;
 		PV v(chunkSize);
 		v.emplace_back<Base>(1u);
 		v.emplace_back<Base>(2u);
 		v.emplace_back<Base>(3u);
 		v.emplace_back<Base>(4u);
 		v.emplace_back<Base>(5u);
-		CHECK(v._dbgGetNumChunks() == std::make_pair(5, 0));
-		CHECK(v._dbgCheckTailUsedCapacity() == std::make_pair(PV::baseSize, chunkSize));
-		CHECK(v.calcCapacity() == std::make_pair(PV::baseSize * 5, chunkSize * 5));
+		checkChunks(v,
+			{{PV::baseSize, chunkSize},
+			 {PV::baseSize, chunkSize},
+			 {PV::baseSize, chunkSize},
+			 {PV::baseSize, chunkSize},
+			 {PV::baseSize, chunkSize}});
 
 		uint64_t count = 0;
 		for(Base& obj : v)
@@ -204,7 +220,7 @@ TEST_CASE("PolyChunkVector", "[PolyChunkVector]")
 		resetCounters();
 		CZ_SCOPE_EXIT { checkCounters(); };
 
-		constexpr size_t chunkSize = PV::baseSize * 2 + PV::fooSize * 2 + 8;
+		constexpr int chunkSize = PV::baseSize * 2 + PV::fooSize * 2 + 8;
 		PV v(chunkSize);
 
 		// 1 chunk
@@ -212,24 +228,24 @@ TEST_CASE("PolyChunkVector", "[PolyChunkVector]")
 		v.emplace_back<Foo> (2u);
 		v.emplace_back<Base>(3u);
 		v.emplace_back<Foo> (4u);
-		CHECK(v._dbgGetNumChunks() == std::make_pair(1, 0));
-		CHECK(v._dbgCheckTailUsedCapacity() == std::make_pair(chunkSize - 8, chunkSize));
+		checkChunks(v, {{chunkSize - 8, chunkSize}});
 
 		// 1 chunk
 		v.emplace_back<Base>(5u);
 		v.emplace_back<Foo> (6u);
 		v.emplace_back<Base>(7u);
 		v.emplace_back<Foo> (8u);
-		CHECK(v._dbgGetNumChunks() == std::make_pair(2, 0));
-		CHECK(v._dbgCheckTailUsedCapacity() == std::make_pair(chunkSize - 8, chunkSize));
+		checkChunks(v,
+			{{chunkSize - 8, chunkSize},
+			 {chunkSize - 8, chunkSize}});
 
 		// 1 chunk
 		v.emplace_back<Base>(9u);
 		v.emplace_back<Foo> (10u);
-		CHECK(v._dbgGetNumChunks() == std::make_pair(3, 0));
-		CHECK(v._dbgCheckTailUsedCapacity() == std::make_pair(PV::baseSize + PV::fooSize, chunkSize));
-
-		CHECK(v.calcCapacity() == std::make_pair(PV::baseSize * 5 + PV::fooSize * 5, chunkSize * 3));
+		checkChunks(v,
+			{{chunkSize - 8, chunkSize},
+			 {chunkSize - 8, chunkSize},
+			 {PV::baseSize + PV::fooSize, chunkSize}});
 
 		CHECK(v.size() == 10);
 
@@ -254,24 +270,203 @@ TEST_CASE("PolyChunkVector", "[PolyChunkVector]")
 		v.emplace_back<Base>(1u);
 		v.emplace_back<Base>(2u);
 		v.emplace_back<Base>(3u);
-		CHECK(v._dbgGetNumChunks() == std::make_pair(3, 0));
-		CHECK(v._dbgCheckTailUsedCapacity() == std::make_pair(PV::baseSize, PV::baseSize));
-		CHECK(v.calcCapacity() == std::make_pair(PV::baseSize * 3, PV::baseSize * 3));
+		checkChunks(v,
+			{{PV::baseSize, PV::baseSize},
+			 {PV::baseSize, PV::baseSize},
+			 {PV::baseSize, PV::baseSize}});
 
 		// By default, clear keeps the chunks
 		v.clear();
 		CHECK(v._dbgGetNumChunks() == std::make_pair(0, 3));
 		CHECK(v._dbgCheckTailUsedCapacity() == std::make_pair(0, PV::baseSize));
 		CHECK(v.calcCapacity() == std::make_pair(0, PV::baseSize * 3));
+		checkChunks(v, {{0, PV::baseSize}, {0, PV::baseSize}, {0, PV::baseSize}});
 
-		SECTION("Deallocate first")
+		// Foo is bigger, so it will need a new chunk, which is added at the end of the chain
+		v.emplace_back<Foo>(4u);
+		checkChunks(v,
+			{{0, PV::baseSize},
+			 {0, PV::baseSize},
+			 {0, PV::baseSize},
+			 {PV::fooSize, PV::fooSize}});
+
+		// Inserting a Base will cause another chunk to be allocated, with a capacity that is now bigger than the first 3,
+		// because it picks up the capacity of the last chunk in the chain
+		v.emplace_back<Base>(5u);
+		CHECK(v._dbgGetNumChunks() == std::make_pair(2, 3));
+		CHECK(v.calcCapacity() == std::make_pair(PV::fooSize + PV::baseSize, PV::baseSize * 3 + PV::fooSize*2));
+		checkChunks(v,
+			{{0, PV::baseSize},
+			 {0, PV::baseSize},
+			 {0, PV::baseSize},
+			 {PV::fooSize, PV::fooSize},
+			 {PV::baseSize, PV::fooSize}});
+	}
+
+	SECTION("Iterators with holes")
+	{
+		resetCounters();
+		CZ_SCOPE_EXIT { checkCounters(); };
+
+		PV v(PV::baseSize);
+
+		uint64_t count = 0;
+		for(Base& obj : v)
 		{
-			// Foo is bigger, so it will need a new chunk
-			v.emplace_back<Foo>(4u);
+			count++;
+			CHECK(obj.a == 0); // unused
+		}
+		CHECK(count == 0);
+
+		// Fill 3 chunk
+		v.emplace_back<Base>(1u);
+		v.emplace_back<Base>(2u);
+		v.emplace_back<Base>(3u);
+
+		// By default, clear keeps the chunks
+		v.clear();
+
+		// Foo is bigger, so it will need a new chunk, leaving the first 3 chunks empty and unused
+		v.emplace_back<Foo>(4u);
+		checkChunks(v,
+			{{0, PV::baseSize},
+			 {0, PV::baseSize},
+			 {0, PV::baseSize},
+			 {PV::fooSize, PV::fooSize}});
+
+		count = 0;
+		for(Base& obj : v)
+		{
+			count++;
+			CHECK(obj.a == 4);
 		}
 
-
+		CHECK(count == 1);
 
 	}
+
 }
+
+namespace
+{
+	
+template<size_t ChunkSize>
+class CmdQueue
+{
+  public:
+
+	struct Cmd
+	{
+		virtual ~Cmd() = default;
+		virtual void execute(std::vector<int>& dst) = 0;
+	};
+
+	PolyChunkVector<Cmd> m_cmds;
+
+	CmdQueue()
+		: m_cmds(ChunkSize)
+	{
+	}
+
+	template<typename F>
+	requires std::invocable<F, std::vector<int>&>
+	struct CmdWrapper : public Cmd
+	{
+		CmdWrapper(F&& f)
+			: payload(std::forward<F>(f))
+		{
+		}
+		
+		void execute(std::vector<int>& dst) override
+		{
+			payload(dst);
+		}
+
+		F payload;
+	};
+
+	template<typename F>
+	Cmd& push(F&& f)
+	{
+		return m_cmds.emplace_back<CmdWrapper<F>>(std::forward<F>(f));
+	}
+
+	void executeAll(std::vector<int>& dst)
+	{
+		for (Cmd& cmd : m_cmds)
+		{
+			cmd.execute(dst);
+		}
+	};
+};
+
+class CmdQueue2
+{
+
+  private: 
+
+	std::vector<std::function<void(std::vector<int>&)>> m_cmds;
+
+  public:
+
+	template<typename F>
+	requires std::invocable<F, std::vector<int>&>
+	void push(F&& f)
+	{
+		m_cmds.emplace_back(std::forward<F>(f));
+	}
+
+	void executeAll(std::vector<int>& dst)
+	{
+		for (const auto& cmd : m_cmds)
+		{
+			cmd(dst);
+		}
+	}
+};
+
+}  // namespace
+
+std::vector<int> gDummy;
+
+
+template<typename QType>
+double testCmdQueue(const int numCmds)
+{
+	QType q;
+
+	auto start = std::chrono::high_resolution_clock::now();
+	for (int i = 0; i < numCmds; i++)
+	{
+		q.push([i](std::vector<int>& dst)
+			{
+				dst.push_back(i);
+			});
+	}
+	auto delta = std::chrono::high_resolution_clock::now() - start;
+	std::chrono::duration<double, std::milli> duration = delta;
+	std::println("Duration: {}", duration.count());
+
+	gDummy.reserve(static_cast<size_t>(numCmds));
+	q.executeAll(gDummy);
+	CHECK(gDummy.size() == static_cast<size_t>(numCmds));
+	gDummy = std::vector<int>{};
+	return duration.count();
+};
+
+TEST_CASE("PV_benchmark")
+{
+	double total = 0;
+	int count = 10;
+	for (int i = 0; i < count; i++)
+	{
+		constexpr int numCmds = 10000000;
+		//total += testCmdQueue<CmdQueue<size_t(24)*100000000>>(100000000);
+		//total += testCmdQueue<CmdQueue<10*1024*1024>>(numCmds);
+		total += testCmdQueue<CmdQueue2>(numCmds);
+	}
+	std::println("Average = {} ms", total / count);
+}
+
+
 
