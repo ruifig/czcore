@@ -23,6 +23,7 @@ set(ALL_FILES
 	"crazygaze/core/Misc.h"
 	"crazygaze/core/PlatformUtils.cpp"
 	"crazygaze/core/PlatformUtils.h"
+	"crazygaze/core/PolyChunkVector.h"
 	"crazygaze/core/ScopeGuard.h"
 	"crazygaze/core/Semaphore.cpp"
 	"crazygaze/core/Semaphore.h"

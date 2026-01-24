@@ -1,6 +1,6 @@
 using namespace cz;
 
-namespace unittests_details
+namespace
 {
 	
 struct WrongBase
@@ -43,9 +43,9 @@ struct MyDeleter
 
 Foo* nulledFoo = nullptr;
 
-}
+} // anonymous namespace
 
-using namespace unittests_details;
+//using namespace unittests_details;
 
 template<template<typename> class SmartPtrType, template<typename> class WeakPtrType>
 struct SharedPtrTests
