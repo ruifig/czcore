@@ -29,7 +29,20 @@ namespace cz
 template<typename T, typename SizeType_ = size_t>
 class PolyChunkVector
 {
+  public:
+	using SizeType = SizeType_;
+
   protected:
+
+	/**
+	 * Stored before each element, so we have the information
+	 * required to transverse the container.
+	 */
+	struct alignas(alignof(T)) Header
+	{
+		// Bytes from this header to the next header
+		SizeType stride;
+	};
 
 	struct Chunk
 	{
@@ -46,14 +59,18 @@ class PolyChunkVector
 			free(mem);
 		}
 		uint8_t* mem;
-		size_t usedCap = 0;
 		size_t cap;
+		size_t usedCap = 0;
+
+		// This is used for when we insert OOB data when the chunk is still empty.
+		// When that happens, we set this to true, and insert an header so we can track the stride,
+		// but that header will be skipped when iterating elements.
+		bool skipFirstHeader = false;
+
 		Chunk* next = nullptr;
 	};
 
   public:
-
-	using SizeType = SizeType_;
 
 	PolyChunkVector(size_t chunkCapacity = (sizeof(T) + sizeof(Header)) * 256)
 	{
@@ -69,30 +86,69 @@ class PolyChunkVector
 	PolyChunkVector(const PolyChunkVector&) = delete;
 	PolyChunkVector& operator=(const PolyChunkVector&) = delete;
 
-	template<class Derived, typename... Args>
-		requires std::is_base_of_v<T, Derived>
-	Derived& emplace_back(Args&&... args)
+	/**
+	 * Finds space for size bytes in the container, allocating new chunks if necessary.
+	 *
+	 * @param size Number of bytes to allocate (excluding the header size).
+	 * @return Pointer to the allocated space (after the header).
+	 */
+	void* getSpace(size_t size)
 	{
-		static_assert(alignof(Derived) <= alignof(T), "Derived type is not properly aligned");
-
-		size_t totalSize = sizeof(Header) + sizeof(Derived);
-
+		size_t totalSize = sizeof(Header) + size;
 		// Check if we have enough space in the current chunk
 		if ((m_tail->usedCap + totalSize) > m_tail->cap)
 		{
 			// Not enough space, get or allocate a new chunk
 			getFreeChunk(std::max(totalSize, m_tail->cap));
 		}
-
-		// Construct the derived object in place
-		Header* newHeader = reinterpret_cast<Header*>(m_tail->mem + m_tail->usedCap);
-		newHeader->stride = static_cast<SizeType>(totalSize);
-		Derived* obj = new (newHeader+1) Derived(std::forward<Args>(args)...);
+		m_lastHeader = reinterpret_cast<Header*>(m_tail->mem + m_tail->usedCap);
+		m_lastHeader->stride = static_cast<SizeType>(totalSize);
 		m_tail->usedCap += totalSize;
+		return (m_lastHeader+1);
+	}
+
+	template<class Derived, typename... Args>
+		requires std::is_base_of_v<T, Derived>
+	Derived& emplace_back(Args&&... args)
+	{
+		static_assert(alignof(Derived) <= alignof(T), "Derived type is not properly aligned");
+
+		void* ptr = getSpace(sizeof(Derived));
+		Derived* obj = new (ptr) Derived(std::forward<Args>(args)...);
 		m_numElements++;
 
 		return *obj;
 	}
+
+	/**
+	 * Pushes out-of-band data alongside the objects.
+	 * This is useful for storing variable size data alongside objects, e.g., strings or arrays, which can improve cache locality.
+	 *
+	 * @param data Pointer to the data to copy.
+	 * @param size Size of the data to copy.
+	 * @return Pointer to where the data was copied to.
+	 */
+	void* pushOOB(const void* data, const size_t size)
+	{
+		void *ptr;
+
+		// If there is a m_lastHeader, try to append the OOB data to it if it fits
+		if (m_lastHeader && ((m_tail->usedCap + size ) <= m_tail->cap))
+		{
+			ptr = m_tail->mem + m_tail->usedCap;
+			m_lastHeader->stride += static_cast<SizeType>(size);
+			m_tail->usedCap += size;
+		}
+		else
+		{
+			ptr = getSpace(size);
+			m_tail->skipFirstHeader = true;
+		}
+
+		memcpy(ptr, data, size);
+		return ptr;
+	}
+
 
 	/**
 	 * Transverses the chunks and returns the used and total capacity of the container.
@@ -137,6 +193,12 @@ class PolyChunkVector
 		while(c)
 		{
 			size_t pos = 0;
+			if (c->skipFirstHeader)
+			{
+				Header* h = reinterpret_cast<Header*>(c->mem);
+				pos += h->stride;
+			}
+
 			while(pos < c->usedCap)
 			{
 				Header* h = reinterpret_cast<Header*>(c->mem + pos);
@@ -147,9 +209,11 @@ class PolyChunkVector
 			}
 
 			c->usedCap = 0;
+			c->skipFirstHeader = false;
 			c = c->next;
 		}
 		m_tail = m_head;
+		m_lastHeader = nullptr;
 		m_numElements = 0;
 
 		if (resetToOneChunk)
@@ -165,30 +229,35 @@ class PolyChunkVector
 
 	struct Iterator
 	{
-		Chunk* c = nullptr;
-		size_t pos = 0;
+		explicit Iterator(Chunk* c, size_t pos)
+			: m_c(c)
+			, m_pos(pos)
+		{
+		}
+
+		Iterator(const Iterator&) = default;
+		Iterator(Iterator&&) = default;
+		Iterator& operator=(const Iterator&) = default;
+		Iterator& operator=(Iterator&&) = default;
 
 		T& operator*() const
 		{
-			Header* h = reinterpret_cast<Header*>(c->mem + pos);
+			Header* h = header();
 			T* obj = reinterpret_cast<T*>(h + 1);
 			return *obj;
 		}
 
 		Iterator& operator++()
 		{
-			assert(c);
-			Header* h = reinterpret_cast<Header*>(c->mem + pos);
-			pos += h->stride;
-
-			skip();
-
+			assert(m_c);
+			nextHeader();
+			skipInvalid();
 			return *this;
 		}
 
 		bool operator==(const Iterator& other) const
 		{
-			return c == other.c && pos == other.pos;
+			return m_c == other.m_c && m_pos == other.m_pos;
 		}
 
 		bool operator!=(const Iterator& other) const
@@ -198,32 +267,77 @@ class PolyChunkVector
 
 		private:
 
+		Chunk* m_c = nullptr;
+		size_t m_pos = 0;
+
 		friend PolyChunkVector;
 
+		Header* header() const
+		{
+			return reinterpret_cast<Header*>(m_c->mem + m_pos);
+		}
+
+		void nextHeader()
+		{
+			m_pos += header()->stride;
+		}
+
 		// Skips until it finds an element (or the end of the chain)
-		void skip()
+		void skipInvalid()
 		{
 			// Skip empty chunks until we find the next item (or the end of the chain)
-			while (c && pos >= c->usedCap)
+			while (m_c && m_pos >= m_c->usedCap)
 			{
 				// Move to next chunk
-				c = c->next;
-				pos = 0;
+				m_c = m_c->next;
+				m_pos = 0;
+				// If the chunk has skipFirstHeader set, we need to skip the first header, because we have OOB
+				// right at the start
+				if (m_c && m_c->skipFirstHeader)
+				{
+					nextHeader();
+				}
 			}
 		}
 	};
 
-	Iterator begin()
+	Iterator begin() const
 	{
 		Iterator it{m_head, 0};
 		// Since the chunk chain can have holes with empty chunks, we need to advance to the first valid element
-		it.skip();
+		it.skipInvalid();
 		return it;
 	}
 
-	Iterator end()
+	Iterator end() const
 	{
 		return Iterator{nullptr, 0};
+	}
+
+	/**
+	 * Pushes an out-of-band string_view
+	 *
+	 * It stores the string data alongside the objects, and returns a string_view pointing to the stored data.
+	 *
+	 * @param str The string to push
+	 * @return A string_view pointing to the stored string data.
+	 */
+	std::string_view pushOOBString(std::string_view str)
+	{
+		return std::string_view(static_cast<char*>(pushOOB(str.data(), str.size())), str.size());
+	}
+
+	/**
+	 * Pushes an out-of-band null-terminated string.
+	 *
+	 * It stores the string data alongside the objects, and returns a string_view pointing to the stored data.
+	 *
+	 * @param str The string to push
+	 * @return A string_view pointing to the stored string data.
+	 */
+	const char* pushOOBString(const char* str)
+	{
+		return static_cast<char*>(pushOOB(str, strlen(str) +1));
 	}
 
   protected:
@@ -243,11 +357,14 @@ class PolyChunkVector
 		}
 
 		m_tail = nullptr;
+		m_lastHeader = nullptr;
 	}
 
 	void getFreeChunk(size_t chunkCapacity)
 	{ 
 		chunkCapacity = roundUpToMultipleOf(std::max(sizeof(Header) + sizeof(T), chunkCapacity), alignof(T));
+
+		m_lastHeader = nullptr;
 
 		// Case for when there is no chunks yet.
 		if (!m_tail)
@@ -275,16 +392,6 @@ class PolyChunkVector
 		m_tail = m_tail->next;
 	}
 
-	/**
-	 * Stored before each element, so we have the information
-	 * required to transverse the container.
-	 */
-	struct alignas(alignof(T)) Header
-	{
-		// Bytes from this header to the next header
-		SizeType stride;
-	};
-
 	//
 	// Since chunks are not necessarily released, it means that once we clear the container, we keep a chain
 	// of chunks that are not in use.
@@ -292,6 +399,10 @@ class PolyChunkVector
 	// The first allocated chunk
 	Chunk* m_head = nullptr;
 	Chunk* m_tail = nullptr;
+
+	// The last header inserted.
+	// We used this so we can insert OOB data after it.
+	Header* m_lastHeader = nullptr;
 
 	std::size_t m_numElements = 0;
 };

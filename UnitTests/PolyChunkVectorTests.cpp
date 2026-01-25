@@ -3,6 +3,16 @@
 #include "crazygaze/core/ScopeGuard.h"
 
 
+void* operator new(std::size_t n)
+{
+	return ::malloc(n);
+}
+
+void operator delete(void* p)
+{
+	::free(p);
+}
+
 // TODO
 // X - Test when 1 single object is larger than chunk size
 //		X - Test when sizeof(Header)+sizeof(Derived) is exactly equal and larger than chunk size
@@ -81,6 +91,7 @@ class PV : public PolyChunkVector<Base>
 {
   public:
 	using PolyChunkVector::PolyChunkVector;
+	static constexpr int headerSize = sizeof(Header);
 	static constexpr int baseSize = sizeof(Header) + sizeof(Base);
 	static constexpr int fooSize  = sizeof(Header) + sizeof(Foo);
 
@@ -139,6 +150,18 @@ void checkChunks(const PV& v, const std::vector<std::pair<int, int>>& expected)
 		CHECK(chunks[i].first == expected[i].first);
 		CHECK(chunks[i].second == expected[i].second);
 	}
+}
+
+void checkElements(const PV& v, const std::vector<int>& expected)
+{
+	CHECK(v.size() == expected.size());
+	size_t index = 0;
+	for (const Base& obj : v)
+	{
+		CHECK(static_cast<int>(obj.a) == expected[index]);
+		index++;
+	}
+	CHECK(index == expected.size());
 }
 
 TEST_CASE("PolyChunkVector", "[PolyChunkVector]")
@@ -205,14 +228,7 @@ TEST_CASE("PolyChunkVector", "[PolyChunkVector]")
 			 {PV::baseSize, chunkSize},
 			 {PV::baseSize, chunkSize}});
 
-		uint64_t count = 0;
-		for(Base& obj : v)
-		{
-			count++;
-			CHECK(obj.a == count);
-		}
-
-		CHECK(count == 5);
+		checkElements(v, {1,2,3,4,5});
 	}
 
 	SECTION("Derived")
@@ -247,16 +263,7 @@ TEST_CASE("PolyChunkVector", "[PolyChunkVector]")
 			 {chunkSize - 8, chunkSize},
 			 {PV::baseSize + PV::fooSize, chunkSize}});
 
-		CHECK(v.size() == 10);
-
-		uint64_t count = 0;
-		for(Base& obj : v)
-		{
-			count++;
-			CHECK(obj.a == count);
-		}
-
-		CHECK(count == 10);
+		checkElements(v, {1,2,3,4,5,6,7,8,9,10});
 	}
 
 	SECTION("clear")
@@ -310,13 +317,7 @@ TEST_CASE("PolyChunkVector", "[PolyChunkVector]")
 
 		PV v(PV::baseSize);
 
-		uint64_t count = 0;
-		for(Base& obj : v)
-		{
-			count++;
-			CHECK(obj.a == 0); // unused
-		}
-		CHECK(count == 0);
+		checkElements(v, {});
 
 		// Fill 3 chunk
 		v.emplace_back<Base>(1u);
@@ -334,22 +335,16 @@ TEST_CASE("PolyChunkVector", "[PolyChunkVector]")
 			 {0, PV::baseSize},
 			 {PV::fooSize, PV::fooSize}});
 
-		count = 0;
-		for(Base& obj : v)
-		{
-			count++;
-			CHECK(obj.a == 4);
-		}
-
-		CHECK(count == 1);
-
+		checkElements(v, {4});
 	}
 
 }
 
+#if 0
 namespace
 {
 	
+
 template<size_t ChunkSize>
 class CmdQueue
 {
@@ -398,8 +393,14 @@ class CmdQueue
 			cmd.execute(dst);
 		}
 	};
+
+	void clear()
+	{
+		m_cmds.clear();
+	}
 };
 
+template<size_t NumCmds>
 class CmdQueue2
 {
 
@@ -408,6 +409,11 @@ class CmdQueue2
 	std::vector<std::function<void(std::vector<int>&)>> m_cmds;
 
   public:
+
+	CmdQueue2()
+	{
+		m_cmds.reserve(NumCmds);
+	}
 
 	template<typename F>
 	requires std::invocable<F, std::vector<int>&>
@@ -423,17 +429,29 @@ class CmdQueue2
 			cmd(dst);
 		}
 	}
+
+	void clear()
+	{
+		m_cmds.clear();
+	}
 };
 
 }  // namespace
 
 std::vector<int> gDummy;
+volatile int gDummy2 = 0;
 
+struct DummyData
+{
+	char d[100];
+} gDummyData;
 
 template<typename QType>
 double testCmdQueue(const int numCmds)
 {
 	QType q;
+	gDummy.reserve(static_cast<size_t>(numCmds));
+	std::string str = "This is my string 1 2 3";
 
 	auto start = std::chrono::high_resolution_clock::now();
 	for (int i = 0; i < numCmds; i++)
@@ -443,30 +461,79 @@ double testCmdQueue(const int numCmds)
 				dst.push_back(i);
 			});
 	}
+
+	q.executeAll(gDummy);
+	q.clear();
 	auto delta = std::chrono::high_resolution_clock::now() - start;
+
 	std::chrono::duration<double, std::milli> duration = delta;
 	std::println("Duration: {}", duration.count());
 
-	gDummy.reserve(static_cast<size_t>(numCmds));
-	q.executeAll(gDummy);
 	CHECK(gDummy.size() == static_cast<size_t>(numCmds));
-	gDummy = std::vector<int>{};
+	gDummy.clear();
 	return duration.count();
 };
 
-TEST_CASE("PV_benchmark")
+TEST_CASE("PV_benchmark", "[PolyChunkVector]")
 {
+	std::function<void(int)> f;
+	std::println("sizeof std::function = {}", sizeof(std::function<void(int)>));
 	double total = 0;
 	int count = 10;
 	for (int i = 0; i < count; i++)
 	{
 		constexpr int numCmds = 10000000;
-		//total += testCmdQueue<CmdQueue<size_t(24)*100000000>>(100000000);
-		//total += testCmdQueue<CmdQueue<10*1024*1024>>(numCmds);
-		total += testCmdQueue<CmdQueue2>(numCmds);
+		total += testCmdQueue<CmdQueue<24*numCmds>>(numCmds);
+		//total += testCmdQueue<CmdQueue2<numCmds>>(numCmds);
 	}
 	std::println("Average = {} ms", total / count);
 }
 
+#endif
 
+
+TEST_CASE("OOB", "[PolyChunkVector]")
+{
+	resetCounters();
+	CZ_SCOPE_EXIT { checkCounters(); };
+
+
+	SECTION("pushString-null terminated")
+	{
+		PV v(PV::baseSize);
+
+		const char* ptr = v.pushOOBString("Hello World!");
+		checkChunks(v,
+			{{PV::headerSize + static_cast<int>(strlen("Hello World!")) + 1, PV::baseSize}});
+		(void)ptr;
+
+		CHECK(strcmp(ptr, "Hello World!") == 0);
+		v.clear(PV::baseSize+1);
+
+		checkElements(v, {});
+	}
+
+	SECTION("pushString-string_view")
+	{
+		PV v(PV::baseSize);
+
+		std::string_view str1 = v.pushOOBString(std::string_view("Hello World"));
+		CHECK(str1.size() == 11);
+		std::string_view str2 = v.pushOOBString(std::string_view("!"));
+		CHECK(str2.size() == 1);
+		checkChunks(v,
+			// No +1 after the string, because there shouldn't be a null-terminator when pushing string_view
+			{{PV::headerSize + static_cast<int>(strlen("Hello World!")), PV::baseSize}});
+
+		// Both strings should have been stored contiguously, without a null-terminator in between
+		std::string_view str(str1.data(), strlen("Hello World!"));
+		CHECK((str == "Hello World!"));
+
+		checkElements(v, {});
+
+	}
+
+
+
+}
 
