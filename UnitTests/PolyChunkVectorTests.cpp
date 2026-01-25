@@ -16,13 +16,8 @@ void operator delete(void* p)
 #endif
 
 
+// Set this to 1 to see what Base and Foo objects are created and destroyed
 #define LOGOBJECTS 0
-// TODO
-// X - Test when 1 single object is larger than chunk size
-//		X - Test when sizeof(Header)+sizeof(Derived) is exactly equal and larger than chunk size
-//		X - Test when there is an already allocated free chunk, but it's smaller than the needed size.
-// X - Test if all chunks are deleted
-// - Test oob data
 
 using namespace cz;
 
@@ -352,10 +347,9 @@ TEST_CASE("PolyChunkVector", "[PolyChunkVector]")
 
 }
 
-#if 1
+#if 0
 namespace
 {
-	
 
 template<size_t ChunkSize>
 class CmdQueue
@@ -410,6 +404,12 @@ class CmdQueue
 	{
 		m_cmds.clear();
 	}
+
+	template<typename STR>
+	auto pushOOBString(STR&& str)
+	{
+		return m_cmds.pushOOBString(std::forward<STR>(str));
+	}
 };
 
 template<size_t NumCmds>
@@ -446,12 +446,20 @@ class CmdQueue2
 	{
 		m_cmds.clear();
 	}
+
+	template<typename STR>
+	std::string pushOOBString(STR&& str)
+	{
+		return str;
+	}
 };
 
 }  // namespace
 
 std::vector<int> gDummy;
 volatile int gDummy2 = 0;
+std::string gDummyString = "Hello World Again! alsdfjm alsdkfjal kdfja ldksfja";
+//std::string gDummyString = "Hello World!";
 
 struct DummyData
 {
@@ -462,16 +470,28 @@ template<typename QType>
 double testCmdQueue(const int numCmds)
 {
 	QType q;
-	gDummy.reserve(static_cast<size_t>(numCmds));
+	//gDummy.reserve(static_cast<size_t>(numCmds));
+	gDummy.resize(static_cast<size_t>(numCmds));
+	gDummy.clear();
+
 	std::string str = "This is my string 1 2 3";
 
 	auto start = std::chrono::high_resolution_clock::now();
 	for (int i = 0; i < numCmds; i++)
 	{
+	#if 0
 		q.push([i](std::vector<int>& dst)
 			{
 				dst.push_back(i);
 			});
+	#else
+		//gDummyString[0]++;
+		q.push([i, str = q.pushOOBString(gDummyString)](std::vector<int>& dst)
+			{
+				dst.push_back(i + str.size());
+			});
+
+	#endif
 	}
 
 	q.executeAll(gDummy);
@@ -495,12 +515,11 @@ TEST_CASE("PV_benchmark", "[PolyChunkVector]")
 	for (int i = 0; i < count; i++)
 	{
 		constexpr int numCmds = 10000000;
-		//total += testCmdQueue<CmdQueue<24*numCmds>>(numCmds);
-		total += testCmdQueue<CmdQueue2<numCmds>>(numCmds);
+		total += testCmdQueue<CmdQueue<24*numCmds>>(numCmds);
+		//total += testCmdQueue<CmdQueue2<numCmds>>(numCmds);
 	}
 	std::println("Average = {} ms", total / count);
 }
-
 #endif
 
 // Helpers for OOB tests, since OOB data ends up aligned too

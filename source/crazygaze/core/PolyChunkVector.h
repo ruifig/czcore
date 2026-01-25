@@ -94,27 +94,6 @@ class PolyChunkVector
 	PolyChunkVector(const PolyChunkVector&) = delete;
 	PolyChunkVector& operator=(const PolyChunkVector&) = delete;
 
-	/**
-	 * Finds space for size bytes in the container, allocating new chunks if necessary.
-	 *
-	 * @param size Number of bytes to allocate (excluding the header size).
-	 * @return Pointer to the allocated space (after the header).
-	 */
-	void* getSpace(size_t size)
-	{
-		size_t totalSize = sizeof(Header) + size;
-		// Check if we have enough space in the current chunk
-		if ((m_tail->usedCap + totalSize) > m_tail->cap)
-		{
-			// Not enough space, get or allocate a new chunk
-			getFreeChunk(std::max(totalSize, m_tail->cap));
-		}
-		m_lastHeader = reinterpret_cast<Header*>(m_tail->mem + m_tail->usedCap);
-		m_lastHeader->stride = static_cast<SizeType>(totalSize);
-		m_tail->usedCap += totalSize;
-		return (m_lastHeader+1);
-	}
-
 	template<class Derived, typename... Args>
 		requires std::is_base_of_v<T, Derived>
 	Derived& emplace_back(Args&&... args)
@@ -163,6 +142,36 @@ class PolyChunkVector
 		return ptr;
 	}
 
+	/**
+	 * Pushes an out-of-band string_view
+	 *
+	 * It stores the string data alongside the objects, and returns a string_view pointing to the stored data.
+	 *
+	 * @param str The string to push
+	 * @return A string_view pointing to the stored string data.
+	 */
+	std::string_view pushOOBString(std::string_view str)
+	{
+		return std::string_view(static_cast<char*>(pushOOB(str.data(), str.size())), str.size());
+	}
+
+	std::string_view pushOOBString(const std::string& str)
+	{
+		return std::string_view(static_cast<char*>(pushOOB(str.data(), str.size())), str.size());
+	}
+
+	/**
+	 * Pushes an out-of-band null-terminated string.
+	 *
+	 * It stores the string data alongside the objects, and returns a string_view pointing to the stored data.
+	 *
+	 * @param str The string to push
+	 * @return A string_view pointing to the stored string data.
+	 */
+	const char* pushOOBString(const char* str)
+	{
+		return static_cast<char*>(pushOOB(str, strlen(str) +1));
+	}
 
 	/**
 	 * Transverses the chunks and returns the used and total capacity of the container.
@@ -294,56 +303,6 @@ class PolyChunkVector
 			return reinterpret_cast<Header*>(m_c->mem + m_pos);
 		}
 
-		#if 0
-		void nextHeader()
-		{
-			m_pos += header()->stride;
-		}
-
-		// Skips until it finds an element (or the end of the chain)
-		void skipInvalid()
-		{
-			auto isInvalidItPos = [this]()-> bool
-			{
-				if (!m_c) // end of chain
-				{
-					assert(m_pos = 0);
-					return false;
-				}
-
-				if (m_pos < m_c->usedCap)
-				{
-					// If we are at the start of a chunk with skipFirstHeader, then it's not an element
-					if (m_pos == 0 && m_c->skipFirstHeader)
-						return true;
-					else
-						return false;
-				}
-				else
-					return true;
-			};
-
-			while(m_c)
-			{
-				if (m_pos == 0 && m_c->skipFirstHeader)
-					nextHeader();
-			}
-
-			// Skip empty chunks until we find the next item (or the end of the chain)
-			while (m_c && m_pos >= m_c->usedCap)
-			{
-				// Move to next chunk
-				m_c = m_c->next;
-				m_pos = 0;
-				// If the chunk has skipFirstHeader set, we need to skip the first header, because we have OOB
-				// right at the start
-				if (m_c && m_c->skipFirstHeader)
-				{
-					nextHeader();
-				}
-			}
-		}
-		#else
 		void findValid()
 		{
 			//
@@ -377,7 +336,6 @@ class PolyChunkVector
 				}
 			}
 		}
-		#endif
 	};
 
 	Iterator begin() const
@@ -393,33 +351,29 @@ class PolyChunkVector
 		return Iterator{nullptr, 0};
 	}
 
-	/**
-	 * Pushes an out-of-band string_view
-	 *
-	 * It stores the string data alongside the objects, and returns a string_view pointing to the stored data.
-	 *
-	 * @param str The string to push
-	 * @return A string_view pointing to the stored string data.
-	 */
-	std::string_view pushOOBString(std::string_view str)
-	{
-		return std::string_view(static_cast<char*>(pushOOB(str.data(), str.size())), str.size());
-	}
-
-	/**
-	 * Pushes an out-of-band null-terminated string.
-	 *
-	 * It stores the string data alongside the objects, and returns a string_view pointing to the stored data.
-	 *
-	 * @param str The string to push
-	 * @return A string_view pointing to the stored string data.
-	 */
-	const char* pushOOBString(const char* str)
-	{
-		return static_cast<char*>(pushOOB(str, strlen(str) +1));
-	}
-
   protected:
+
+	/**
+	 * Finds space for size bytes in the container, allocating new chunks if necessary.
+	 *
+	 * @param size Number of bytes to allocate (excluding the header size).
+	 * @return Pointer to the allocated space (after the header).
+	 */
+	void* getSpace(size_t size)
+	{
+		size_t totalSize = sizeof(Header) + size;
+		// Check if we have enough space in the current chunk
+		if ((m_tail->usedCap + totalSize) > m_tail->cap)
+		{
+			// Not enough space, get or allocate a new chunk
+			getFreeChunk(std::max(totalSize, m_tail->cap));
+		}
+		m_lastHeader = reinterpret_cast<Header*>(m_tail->mem + m_tail->usedCap);
+		m_lastHeader->stride = static_cast<SizeType>(totalSize);
+		m_tail->usedCap += totalSize;
+		return (m_lastHeader+1);
+	}
+
 
 	/**
 	 * Deletes all allocated chunks.
