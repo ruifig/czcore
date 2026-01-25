@@ -57,7 +57,6 @@ class PolyChunkVector
 
 	PolyChunkVector(size_t chunkCapacity = (sizeof(T) + sizeof(Header)) * 256)
 	{
-		std::println("sizeof(Header) = {}", sizeof(Header));
 		getFreeChunk(chunkCapacity);
 	}
 
