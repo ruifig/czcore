@@ -8,6 +8,9 @@ __pragma(warning(push))
 __pragma(warning(disable: 4324))  /* 'structname': structure was padded due to alignment specifier */
 #endif
 
+// Set this to 1 to clear memory to 0xAA on allocation and 0xCC on clearing
+#define POLYCHUNKVECTOR_CLEARMEM 0
+
 namespace cz
 {
 
@@ -16,6 +19,7 @@ namespace cz
  * It has the following characteristics:
  * 
  * - A base type `T` is specified as a template parameter.
+ * - Respects the alignment of `T`.
  *   It then allows storing any type derived from `T`.
  * - Types can be polymorphic
  * - Once created, objects are never moved. This means that pointers/references to objects remain valid until the container is destroyed or cleared.
@@ -51,6 +55,10 @@ class PolyChunkVector
 		{
 			mem = static_cast<uint8_t*>(malloc(capacity));
 			cap = capacity;
+
+			#if POLYCHUNKVECTOR_CLEARMEM
+				memset(mem, 0xAA, capacity);
+			#endif
 		}
 
 		~Chunk()
@@ -114,6 +122,7 @@ class PolyChunkVector
 		static_assert(alignof(Derived) <= alignof(T), "Derived type is not properly aligned");
 
 		void* ptr = getSpace(sizeof(Derived));
+		assert(isMultipleOf(reinterpret_cast<size_t>(ptr), alignof(T)));
 		Derived* obj = new (ptr) Derived(std::forward<Args>(args)...);
 		m_numElements++;
 
@@ -126,26 +135,31 @@ class PolyChunkVector
 	 *
 	 * @param data Pointer to the data to copy.
 	 * @param size Size of the data to copy.
-	 * @return Pointer to where the data was copied to.
+	 * @return Pointer to where the data was copied to. The returned pointer has the same alignment of T
 	 */
 	void* pushOOB(const void* data, const size_t size)
 	{
 		void *ptr;
+		if (size== 0)
+			return nullptr;
+
+		size_t alignedSize = roundUpToMultipleOf(size, alignof(T));
 
 		// If there is a m_lastHeader, try to append the OOB data to it if it fits
-		if (m_lastHeader && ((m_tail->usedCap + size ) <= m_tail->cap))
+		if (m_lastHeader && ((m_tail->usedCap + alignedSize ) <= m_tail->cap))
 		{
 			ptr = m_tail->mem + m_tail->usedCap;
-			m_lastHeader->stride += static_cast<SizeType>(size);
-			m_tail->usedCap += size;
+			m_lastHeader->stride += static_cast<SizeType>(alignedSize);
+			m_tail->usedCap += alignedSize;
 		}
 		else
 		{
-			ptr = getSpace(size);
+			ptr = getSpace(alignedSize);
 			m_tail->skipFirstHeader = true;
 		}
 
 		memcpy(ptr, data, size);
+		assert(isMultipleOf(size_t(ptr), alignof(T)));
 		return ptr;
 	}
 
@@ -210,6 +224,9 @@ class PolyChunkVector
 
 			c->usedCap = 0;
 			c->skipFirstHeader = false;
+			#if POLYCHUNKVECTOR_CLEARMEM
+				memset(c->mem, 0xCC, c->cap);
+			#endif
 			c = c->next;
 		}
 		m_tail = m_head;
@@ -250,8 +267,8 @@ class PolyChunkVector
 		Iterator& operator++()
 		{
 			assert(m_c);
-			nextHeader();
-			skipInvalid();
+			m_pos += header()->stride;
+			findValid();
 			return *this;
 		}
 
@@ -277,6 +294,7 @@ class PolyChunkVector
 			return reinterpret_cast<Header*>(m_c->mem + m_pos);
 		}
 
+		#if 0
 		void nextHeader()
 		{
 			m_pos += header()->stride;
@@ -285,6 +303,32 @@ class PolyChunkVector
 		// Skips until it finds an element (or the end of the chain)
 		void skipInvalid()
 		{
+			auto isInvalidItPos = [this]()-> bool
+			{
+				if (!m_c) // end of chain
+				{
+					assert(m_pos = 0);
+					return false;
+				}
+
+				if (m_pos < m_c->usedCap)
+				{
+					// If we are at the start of a chunk with skipFirstHeader, then it's not an element
+					if (m_pos == 0 && m_c->skipFirstHeader)
+						return true;
+					else
+						return false;
+				}
+				else
+					return true;
+			};
+
+			while(m_c)
+			{
+				if (m_pos == 0 && m_c->skipFirstHeader)
+					nextHeader();
+			}
+
 			// Skip empty chunks until we find the next item (or the end of the chain)
 			while (m_c && m_pos >= m_c->usedCap)
 			{
@@ -299,13 +343,48 @@ class PolyChunkVector
 				}
 			}
 		}
+		#else
+		void findValid()
+		{
+			//
+			// Valid positions are:
+			// m_c == nullptr : end of chain (aka end() iterator)
+			// (m_pos < m_c->usedCap && m_pos > 0)
+			// (m_pos < m_c->usedCap && m_pos == 0 && !m_c->skipFirstHeader)
+
+			while(true)
+			{
+				if (m_c == nullptr)
+				{
+					assert(m_pos == 0);
+					return;
+				}
+
+				if (m_pos < m_c->usedCap)
+				{
+					if (m_pos > 0 || (m_pos == 0 && !m_c->skipFirstHeader))
+						return;
+
+					m_pos += header()->stride;
+				}
+
+				// Note that this can't be an "else" because we can change m_pos in the previous if and we need to check
+				// if it's past usedCap
+				if (m_pos >= m_c->usedCap)
+				{
+					m_c = m_c->next;
+					m_pos = 0;
+				}
+			}
+		}
+		#endif
 	};
 
 	Iterator begin() const
 	{
 		Iterator it{m_head, 0};
 		// Since the chunk chain can have holes with empty chunks, we need to advance to the first valid element
-		it.skipInvalid();
+		it.findValid();
 		return it;
 	}
 

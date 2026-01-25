@@ -3,6 +3,7 @@
 #include "crazygaze/core/ScopeGuard.h"
 
 
+#if 0
 void* operator new(std::size_t n)
 {
 	return ::malloc(n);
@@ -12,7 +13,10 @@ void operator delete(void* p)
 {
 	::free(p);
 }
+#endif
 
+
+#define LOGOBJECTS 0
 // TODO
 // X - Test when 1 single object is larger than chunk size
 //		X - Test when sizeof(Header)+sizeof(Derived) is exactly equal and larger than chunk size
@@ -33,14 +37,18 @@ struct Base
 		: a(a)
 	{
 		baseNum = creationNum++;
-		std::println(" Base() : {}, {}", baseNum, a);
+		#if LOGOBJECTS
+			std::println(" Base() : {}, {}", baseNum, a);
+		#endif
 	}
 
 	virtual ~Base()
 	{
 		CHECK(baseNum == destructionNum);
 		destructionNum++;
-		std::println("~Base() : {}, {}", baseNum, a);
+		#if LOGOBJECTS
+			std::println("~Base() : {}, {}", baseNum, a);
+		#endif
 	}
 
 	int baseNum;
@@ -56,14 +64,18 @@ struct Foo : Base
 		: Base(a)
 	{
 		fooNum = creationNum++;
-		std::println(" Foo() : {}, {}", fooNum, a);
+		#if LOGOBJECTS
+			std::println(" Foo() : {}, {}", fooNum, a);
+		#endif
 	}
 
 	~Foo()
 	{
 		CHECK(fooNum == destructionNum);
 		destructionNum++;
-		std::println("~Foo() : {}, {}", fooNum, a);
+		#if LOGOBJECTS
+			std::println("~Foo() : {}, {}", fooNum, a);
+		#endif
 	}
 
 	int fooNum;
@@ -340,7 +352,7 @@ TEST_CASE("PolyChunkVector", "[PolyChunkVector]")
 
 }
 
-#if 0
+#if 1
 namespace
 {
 	
@@ -483,14 +495,23 @@ TEST_CASE("PV_benchmark", "[PolyChunkVector]")
 	for (int i = 0; i < count; i++)
 	{
 		constexpr int numCmds = 10000000;
-		total += testCmdQueue<CmdQueue<24*numCmds>>(numCmds);
-		//total += testCmdQueue<CmdQueue2<numCmds>>(numCmds);
+		//total += testCmdQueue<CmdQueue<24*numCmds>>(numCmds);
+		total += testCmdQueue<CmdQueue2<numCmds>>(numCmds);
 	}
 	std::println("Average = {} ms", total / count);
 }
 
 #endif
 
+// Helpers for OOB tests, since OOB data ends up aligned too
+//
+int strlenAlignUp(const char* str, bool includeNullTerminator)
+{
+	auto s = strlen(str);
+	if (includeNullTerminator)
+		s++;
+	return static_cast<int>(roundUpToMultipleOf(s, alignof(Base)));
+}
 
 TEST_CASE("OOB", "[PolyChunkVector]")
 {
@@ -504,7 +525,7 @@ TEST_CASE("OOB", "[PolyChunkVector]")
 
 		const char* ptr = v.pushOOBString("Hello World!");
 		checkChunks(v,
-			{{PV::headerSize + static_cast<int>(strlen("Hello World!")) + 1, PV::baseSize}});
+			{{PV::headerSize + strlenAlignUp("Hello World!", true), PV::baseSize}});
 		(void)ptr;
 
 		CHECK(strcmp(ptr, "Hello World!") == 0);
@@ -517,23 +538,98 @@ TEST_CASE("OOB", "[PolyChunkVector]")
 	{
 		PV v(PV::baseSize);
 
-		std::string_view str1 = v.pushOOBString(std::string_view("Hello World"));
-		CHECK(str1.size() == 11);
-		std::string_view str2 = v.pushOOBString(std::string_view("!"));
-		CHECK(str2.size() == 1);
+		std::string_view str1 = v.pushOOBString(std::string_view("Hello"));
+		checkElements(v, {});
+		std::string_view str2 = v.pushOOBString(std::string_view(" "));
+		checkElements(v, {});
+		std::string_view str3 = v.pushOOBString(std::string_view("World!"));
+		checkElements(v, {});
+		CHECK((str1 == "Hello"));
+		CHECK((str2 == " "));
+		CHECK((str3 == "World!"));
 		checkChunks(v,
 			// No +1 after the string, because there shouldn't be a null-terminator when pushing string_view
-			{{PV::headerSize + static_cast<int>(strlen("Hello World!")), PV::baseSize}});
+			{{PV::headerSize + strlenAlignUp("Hello", false) + strlenAlignUp(" ", false) + strlenAlignUp("World!", false), PV::baseSize}});
 
-		// Both strings should have been stored contiguously, without a null-terminator in between
-		std::string_view str(str1.data(), strlen("Hello World!"));
-		CHECK((str == "Hello World!"));
-
+		// Insert another string that won't fit in the 1st chunk
+		std::string_view str4 = v.pushOOBString(std::string_view("Hello World Back!"));
 		checkElements(v, {});
+		CHECK((str4 == "Hello World Back!"));
+		checkChunks(v,
+			{{PV::headerSize + strlenAlignUp("Hello", false) + strlenAlignUp(" ", false) + strlenAlignUp("World!", false), PV::baseSize},
+			 {PV::headerSize + strlenAlignUp("Hello World Back!", false), PV::baseSize}});
 
+		// Lets insert 1 element, which will cause another chunk to be allocated
+		v.emplace_back<Base>(1u);
+		checkElements(v, {1});
+		checkChunks(v,
+			{{PV::headerSize + strlenAlignUp("Hello", false) + strlenAlignUp(" ", false) + strlenAlignUp("World!", false), PV::baseSize},
+			 {PV::headerSize + strlenAlignUp("Hello World Back!", false), PV::baseSize},
+			 {PV::baseSize, PV::baseSize}});
+
+		std::string_view str6 = v.pushOOBString(std::string_view("Hello World!"));
+		checkElements(v, {1});
+		CHECK((str6 == "Hello World!"));
+		v.emplace_back<Base>(2u);
+		checkElements(v, {1,2});
+		checkChunks(v,
+			{{PV::headerSize + strlenAlignUp("Hello", false) + strlenAlignUp(" ", false) + strlenAlignUp("World!", false), PV::baseSize},
+			 {PV::headerSize + strlenAlignUp("Hello World Back!", false), PV::baseSize},
+			 {PV::baseSize, PV::baseSize},
+			 {PV::headerSize + strlenAlignUp("Hello World!", false), PV::baseSize},
+			 {PV::baseSize, PV::baseSize}});
 	}
 
+	SECTION("OOB mixed with elements")
+	{
+		PV v(PV::baseSize * 3);
 
+		SECTION("OOB at the start")
+		{
+			std::string_view str = v.pushOOBString(std::string_view("Hello World Back!"));
+			CHECK((str == "Hello World Back!"));
+			v.emplace_back<Base>(1u);
+			v.emplace_back<Base>(2u);
+			checkElements(v, {1, 2});
 
+			// NOTE: Because the oob was at the start, it needs an header that we skip when iterating elements
+			checkChunks(v, {{
+					PV::headerSize + strlenAlignUp("Hello World Back!", false) + PV::baseSize * 2,
+					PV::baseSize * 3
+				}});
+		}
+
+		SECTION("OOB in the middle")
+		{
+			v.emplace_back<Base>(1u);
+			std::string_view str = v.pushOOBString(std::string_view("Hello World Back!"));
+			CHECK((str == "Hello World Back!"));
+			v.emplace_back<Base>(2u);
+			checkElements(v, {1, 2});
+
+			// NOTE: Because the oob was inserted at the middle, it reuses the header of the 1st element
+			//
+			checkChunks(v, {{
+					PV::baseSize + strlenAlignUp("Hello World Back!", false) + PV::baseSize,
+					PV::baseSize * 3
+				}});
+		}
+
+		SECTION("OOB in the end")
+		{
+			v.emplace_back<Base>(1u);
+			v.emplace_back<Base>(2u);
+			std::string_view str = v.pushOOBString(std::string_view("Hello World Back!"));
+			CHECK((str == "Hello World Back!"));
+			checkElements(v, {1, 2});
+
+			// NOTE: Because the oob was inserted at the end, it reuses the header of the 2nd element
+			//
+			checkChunks(v, {{
+					PV::baseSize*2 + strlenAlignUp("Hello World Back!", false),
+					PV::baseSize * 3
+				}});
+		}
+	}
 }
 
