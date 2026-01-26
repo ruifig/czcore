@@ -29,13 +29,13 @@ namespace cz
  *   - This is useful for storing variable size data alongside objects, e.g., strings or arrays, which can improve cache locality.
  *
  * The best use case for this container is to create cache friend command queues.
+ *
+ * When constructed, no memory is allocated until the first object is added.
+ * To do a "reserve" similar to what std containers do, use `clear` with the `resetToSingleChunk` parameter after construction.
  */
 template<typename T, typename SizeType_ = size_t>
 class PolyChunkVector
 {
-  public:
-	using SizeType = SizeType_;
-
   protected:
 
 	/**
@@ -45,8 +45,16 @@ class PolyChunkVector
 	struct alignas(alignof(T)) Header
 	{
 		// Bytes from this header to the next header
-		SizeType stride;
+		SizeType_ stride;
 	};
+
+  public:
+	using SizeType = SizeType_;
+
+	// What is the initial chunk capacity, if elements are pushed before any clear with resetToSingleChunk
+	constexpr static SizeType InitialChunkCapacity = (sizeof(Header) + sizeof(T)) * 1024;
+
+  protected:
 
 	struct Chunk
 	{
@@ -80,10 +88,7 @@ class PolyChunkVector
 
   public:
 
-	PolyChunkVector(size_t chunkCapacity = (sizeof(T) + sizeof(Header)) * 256)
-	{
-		getFreeChunk(chunkCapacity);
-	}
+	PolyChunkVector() = default;
 
 	~PolyChunkVector()
 	{
@@ -91,8 +96,28 @@ class PolyChunkVector
 		deleteAllChunks();
 	}
 
-	PolyChunkVector(const PolyChunkVector&) = delete;
-	PolyChunkVector& operator=(const PolyChunkVector&) = delete;
+	CZ_DELETE_COPY(PolyChunkVector);
+
+	PolyChunkVector(PolyChunkVector&& other)
+	{
+		swap(*this, other);
+	}
+
+	PolyChunkVector& operator=(PolyChunkVector&& other)
+	{
+		clear();
+		deleteAllChunks();
+		swap(*this, other);
+		return *this;
+	}
+
+	friend void swap(PolyChunkVector& a, PolyChunkVector& b)
+	{
+		std::swap(a.m_head       , b.m_head);
+		std::swap(a.m_tail       , b.m_tail);
+		std::swap(a.m_lastHeader , b.m_lastHeader);
+		std::swap(a.m_numElements, b.m_numElements);
+	}
 
 	template<class Derived, typename... Args>
 		requires std::is_base_of_v<T, Derived>
@@ -245,7 +270,7 @@ class PolyChunkVector
 		if (resetToOneChunk)
 		{
 			// If we only have 1 chunk, and it's the requested size, then nothing to do
-			if (m_tail->next == nullptr && m_tail->cap == resetToOneChunk)
+			if (m_tail && m_tail->next == nullptr && m_tail->cap == resetToOneChunk)
 				return;
 
 			deleteAllChunks();
@@ -362,12 +387,17 @@ class PolyChunkVector
 	void* getSpace(size_t size)
 	{
 		size_t totalSize = sizeof(Header) + size;
-		// Check if we have enough space in the current chunk
-		if ((m_tail->usedCap + totalSize) > m_tail->cap)
+
+		if (m_tail == nullptr) // case where we don't have any chunks yet
 		{
-			// Not enough space, get or allocate a new chunk
+			getFreeChunk(std::max(totalSize, InitialChunkCapacity));
+		}
+		else if ((m_tail->usedCap + totalSize) > m_tail->cap) // case where we have chunks but not enough space in the current tail
+		{
+			// We allocate a new chunk with at least the same capacity as the last one
 			getFreeChunk(std::max(totalSize, m_tail->cap));
 		}
+
 		m_lastHeader = reinterpret_cast<Header*>(m_tail->mem + m_tail->usedCap);
 		m_lastHeader->stride = static_cast<SizeType>(totalSize);
 		m_tail->usedCap += totalSize;
@@ -504,9 +534,10 @@ class CommandVector
 	 * how much capacity is used. Then use that value as the `chunkCapacity`, which means it will create one chunk big enough to
 	 * hold all commands in a typical workload.
 	 */
-	CommandVector(size_t chunkCapacity)
-		: m_cmds(chunkCapacity)
+	CommandVector(size_t chunkCapacity = 0)
 	{
+		if (chunkCapacity)
+			m_cmds.clear(chunkCapacity);
 	}
 
 	/**

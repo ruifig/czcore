@@ -21,17 +21,26 @@ void operator delete(void* p)
 
 using namespace cz;
 
-namespace
+namespace pvtests
 {
 
 struct Base
 {
 	inline static int creationNum = 0;
-	inline static int destructionNum = 0;
+
+	// Used to track what "Base"s constructors/destructors were called
+	inline static std::vector<int> createdBases;
+
 	Base( uint64_t a )
 		: a(a)
 	{
 		baseNum = creationNum++;
+
+		// Make sure this baseNum is unique
+		CHECK((std::find(createdBases.begin(), createdBases.end(), baseNum) == createdBases.end())); 
+
+		createdBases.push_back(baseNum);
+
 		#if LOGOBJECTS
 			std::println(" Base() : {}, {}", baseNum, a);
 		#endif
@@ -39,8 +48,11 @@ struct Base
 
 	virtual ~Base()
 	{
-		CHECK(baseNum == destructionNum);
-		destructionNum++;
+		// Make sure this baseNum exists
+		auto it = std::find(createdBases.begin(), createdBases.end(), baseNum);
+		CHECK((it != createdBases.end()));
+		createdBases.erase(it);
+
 		#if LOGOBJECTS
 			std::println("~Base() : {}, {}", baseNum, a);
 		#endif
@@ -52,13 +64,17 @@ struct Base
 
 struct Foo : Base
 {
-	inline static int creationNum = 0;
-	inline static int destructionNum = 0;
+	// Used to track what "Foo"s constructors/destructors were called
+	inline static std::vector<int> createdFoos;
 
 	Foo(uint64_t a)
 		: Base(a)
 	{
-		fooNum = creationNum++;
+		// Make sure this baseNum is unique
+		CHECK((std::find(createdFoos.begin(), createdFoos.end(), baseNum) == createdFoos.end())); 
+
+		createdFoos.push_back(baseNum);
+
 		#if LOGOBJECTS
 			std::println(" Foo() : {}, {}", fooNum, a);
 		#endif
@@ -66,8 +82,11 @@ struct Foo : Base
 
 	~Foo()
 	{
-		CHECK(fooNum == destructionNum);
-		destructionNum++;
+		// Make sure this baseNum exists
+		auto it = std::find(createdFoos.begin(), createdFoos.end(), baseNum);
+		CHECK((it != createdFoos.end()));
+		createdFoos.erase(it);
+
 		#if LOGOBJECTS
 			std::println("~Foo() : {}, {}", fooNum, a);
 		#endif
@@ -80,18 +99,18 @@ struct Foo : Base
 void resetCounters()
 {
 	Base::creationNum = 0;
-	Base::destructionNum = 0;
 	Foo::creationNum = 0;
-	Foo::destructionNum = 0;
 }
 
 void checkCounters()
 {
-	CHECK(Base::creationNum == Base::destructionNum);
-	CHECK(Foo::creationNum == Foo::destructionNum);
+	CHECK(Base::createdBases.size() == 0);
+	CHECK(Foo::createdFoos.size() == 0);
 }
 
-} // anonymous namespace
+} // pvtests
+
+using namespace pvtests;
 
 // Create a testable container
 class PV : public PolyChunkVector<Base>
@@ -101,6 +120,7 @@ class PV : public PolyChunkVector<Base>
 	static constexpr int headerSize = sizeof(Header);
 	static constexpr int baseSize = sizeof(Header) + sizeof(Base);
 	static constexpr int fooSize  = sizeof(Header) + sizeof(Foo);
+	static constexpr int defaultSize = static_cast<int>(PolyChunkVector::InitialChunkCapacity);
 
 	/**
 	 * Used just for debugging
@@ -171,6 +191,57 @@ void checkElements(const PV& v, const std::vector<int>& expected)
 	CHECK(index == expected.size());
 }
 
+TEST_CASE("Initial states", "[PolyChunkVector]")
+{
+	resetCounters();
+	CZ_SCOPE_EXIT { checkCounters(); };
+
+	PV v;
+	checkChunks(v, {});
+	v.emplace_back<Base>(1u);
+	checkChunks(v, {{PV::baseSize, PV::defaultSize}});
+	checkElements(v, {1});
+
+	SECTION("Move constructor")
+	{
+		PV v2(std::move(v));
+
+		checkChunks(v, {});
+		checkElements(v, {});
+
+		checkChunks(v2, {{PV::baseSize, PV::defaultSize}});
+		checkElements(v2, {1});
+	}
+
+	SECTION("Move assignment - Empty destination")
+	{
+		PV v2;
+		v2 = std::move(v);
+
+		checkChunks(v, {});
+		checkElements(v, {});
+
+		checkChunks(v2, {{PV::baseSize, PV::defaultSize}});
+		checkElements(v2, {1});
+	}
+
+	SECTION("Move assignment - Non-empty destination")
+	{
+		PV v2;
+		v2.emplace_back<Foo>(2u);
+		checkChunks(v2, {{PV::fooSize, PV::defaultSize}});
+		checkElements(v2, {2});
+
+		v2 = std::move(v);
+
+		checkChunks(v, {});
+		checkElements(v, {});
+
+		checkChunks(v2, {{PV::baseSize, PV::defaultSize}});
+		checkElements(v2, {1});
+	}
+}
+
 TEST_CASE("PolyChunkVector", "[PolyChunkVector]")
 {
 	SECTION("2 full chunks")
@@ -180,7 +251,8 @@ TEST_CASE("PolyChunkVector", "[PolyChunkVector]")
 
 		std::println("sizeof(Base) = {}", sizeof(Base));
 
-		PV v(sizeof(Base));
+		PV v;
+		v.clear(sizeof(Base));
 
 		// We tried to initialize with sizeof(Base), but it gets aligned, because it needs to fit at least 1 header + 1 object
 		checkChunks(v, {{0, PV::baseSize}});
@@ -203,7 +275,8 @@ TEST_CASE("PolyChunkVector", "[PolyChunkVector]")
 		CZ_SCOPE_EXIT { checkCounters(); };
 
 		constexpr int chunkSize = PV::baseSize + 16;
-		PV v(chunkSize);
+		PV v;
+		v.clear(chunkSize);
 
 		checkChunks(v, {{0, chunkSize}});
 
@@ -222,7 +295,8 @@ TEST_CASE("PolyChunkVector", "[PolyChunkVector]")
 		CZ_SCOPE_EXIT { checkCounters(); };
 
 		constexpr int chunkSize = PV::baseSize + 8;
-		PV v(chunkSize);
+		PV v;
+		v.clear(chunkSize);
 		v.emplace_back<Base>(1u);
 		v.emplace_back<Base>(2u);
 		v.emplace_back<Base>(3u);
@@ -244,7 +318,8 @@ TEST_CASE("PolyChunkVector", "[PolyChunkVector]")
 		CZ_SCOPE_EXIT { checkCounters(); };
 
 		constexpr int chunkSize = PV::baseSize * 2 + PV::fooSize * 2 + 8;
-		PV v(chunkSize);
+		PV v;
+		v.clear(chunkSize);
 
 		// 1 chunk
 		v.emplace_back<Base>(1u);
@@ -278,7 +353,8 @@ TEST_CASE("PolyChunkVector", "[PolyChunkVector]")
 		resetCounters();
 		CZ_SCOPE_EXIT { checkCounters(); };
 
-		PV v(PV::baseSize);
+		PV v;
+		v.clear(PV::baseSize);
 
 		// Fill 3 chunk
 		v.emplace_back<Base>(1u);
@@ -322,7 +398,8 @@ TEST_CASE("PolyChunkVector", "[PolyChunkVector]")
 		resetCounters();
 		CZ_SCOPE_EXIT { checkCounters(); };
 
-		PV v(PV::baseSize);
+		PV v;
+		v.clear(PV::baseSize);
 
 		checkElements(v, {});
 
@@ -365,8 +442,8 @@ class CmdQueue
 	PolyChunkVector<Cmd> m_cmds;
 
 	CmdQueue()
-		: m_cmds(ChunkSize)
 	{
+		m_cmds.clear(ChunkSize);
 	}
 
 	template<typename F>
@@ -485,10 +562,9 @@ double testCmdQueue(const int numCmds)
 				dst.push_back(i);
 			});
 	#else
-		//gDummyString[0]++;
 		q.push([i, str = q.pushOOBString(gDummyString)](std::vector<int>& dst)
 			{
-				dst.push_back(i + str.size());
+				dst.push_back(i + static_cast<int>(str.size()));
 			});
 
 	#endif
@@ -511,7 +587,7 @@ TEST_CASE("PV_benchmark", "[PolyChunkVector]")
 	std::function<void(int)> f;
 	std::println("sizeof std::function = {}", sizeof(std::function<void(int)>));
 	double total = 0;
-	int count = 10;
+	int count = 20;
 	for (int i = 0; i < count; i++)
 	{
 		constexpr int numCmds = 10000000;
@@ -540,7 +616,8 @@ TEST_CASE("OOB", "[PolyChunkVector]")
 
 	SECTION("pushString-null terminated")
 	{
-		PV v(PV::baseSize);
+		PV v;
+		v.clear(PV::baseSize);
 
 		const char* ptr = v.pushOOBString("Hello World!");
 		checkChunks(v,
@@ -555,7 +632,8 @@ TEST_CASE("OOB", "[PolyChunkVector]")
 
 	SECTION("pushString-string_view")
 	{
-		PV v(PV::baseSize);
+		PV v;
+		v.clear(PV::baseSize);
 
 		std::string_view str1 = v.pushOOBString(std::string_view("Hello"));
 		checkElements(v, {});
@@ -601,7 +679,8 @@ TEST_CASE("OOB", "[PolyChunkVector]")
 
 	SECTION("OOB mixed with elements")
 	{
-		PV v(PV::baseSize * 3);
+		PV v;
+		v.clear(PV::baseSize * 3);
 
 		SECTION("OOB at the start")
 		{
@@ -652,8 +731,23 @@ TEST_CASE("OOB", "[PolyChunkVector]")
 	}
 }
 
+TEST_CASE("Move constructor")
+{
+	PV v1;
+	v1.clear(PV::baseSize*2);
+	v1.emplace_back<Base>(1u);
+	v1.emplace_back<Foo>(2u);
+	checkElements(v1, {1, 2});
+	checkChunks(v1,
+		{{PV::baseSize, PV::baseSize * 2},
+		 {PV::fooSize, PV::baseSize * 2}});
+}
+
 TEST_CASE("CommandVector")
 {
+	//PV v1(32);
+	//PV v2(std::move(v1));
+
 	CommandVector v(2*1024*1024);
 
 	int count = 10;
