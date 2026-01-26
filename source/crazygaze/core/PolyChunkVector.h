@@ -269,8 +269,8 @@ class PolyChunkVector
 
 		if (resetToOneChunk)
 		{
-			// If we only have 1 chunk, and it's the requested size, then nothing to do
-			if (m_tail && m_tail->next == nullptr && m_tail->cap == resetToOneChunk)
+			// If we only have 1 chunk, and its already >=the requested size, then nothing to do
+			if (m_tail && m_tail->next == nullptr && m_tail->cap >= resetToOneChunk)
 				return;
 
 			deleteAllChunks();
@@ -564,13 +564,16 @@ class CommandVector
 	/** 
 	 * Execute all commands.
 	 * Note that the commands are NOT removed from the containers. Use `clear` to do that.
+	 *
+	 * @return The number of commands executed.
 	 */
-	void executeAll()
+	size_t executeAll()
 	{
 		for (Cmd& cmd : m_cmds)
 		{
 			cmd();
 		}
+		return m_cmds.size();
 	}
 
 	/**
