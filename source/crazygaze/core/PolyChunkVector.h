@@ -134,20 +134,18 @@ class PolyChunkVector
 	}
 
 	/**
-	 * Pushes out-of-band data alongside the objects.
-	 * This is useful for storing variable size data alongside objects, e.g., strings or arrays, which can improve cache locality.
+	 * Reserves out-of-band data space alongside the objects.
+	 * This is used to store things such as strings, or any data of variable size.
 	 *
-	 * @param data Pointer to the data to copy.
-	 * @param size Size of the data to copy.
-	 * @return Pointer to where the data was copied to. The returned pointer has the same alignment of T
+	 * @return The pointer to where the data can be copied
 	 */
-	void* pushOOB(const void* data, const size_t size)
+	void* reserveOOB(const size_t size)
 	{
-		void *ptr;
 		if (size== 0)
 			return nullptr;
 
 		size_t alignedSize = roundUpToMultipleOf(size, alignof(T));
+		void *ptr;
 
 		// If there is a m_lastHeader, try to append the OOB data to it if it fits
 		if (m_lastHeader && ((m_tail->usedCap + alignedSize ) <= m_tail->cap))
@@ -162,8 +160,24 @@ class PolyChunkVector
 			m_tail->skipFirstHeader = true;
 		}
 
-		memcpy(ptr, data, size);
 		assert(isMultipleOf(size_t(ptr), alignof(T)));
+		return ptr;
+	}
+
+	/**
+	 * Pushes out-of-band data alongside the objects.
+	 * This is useful for storing variable size data alongside objects, e.g., strings or arrays, which can improve cache locality.
+	 *
+	 * @param data Pointer to the data to copy.
+	 * @param size Size of the data to copy.
+	 * @return Pointer to where the data was copied to. The returned pointer has the same alignment of T
+	 */
+	void* pushOOB(const void* data, const size_t size)
+	{
+		void* ptr = reserveOOB(size);
+		if (!ptr)
+			return nullptr;
+		memcpy(ptr, data, size);
 		return ptr;
 	}
 
@@ -171,6 +185,7 @@ class PolyChunkVector
 	 * Pushes an out-of-band string_view
 	 *
 	 * It stores the string data alongside the objects, and returns a string_view pointing to the stored data.
+	 * Note that it DOESN'T store a null-terminator. It stores only what the string view has.
 	 *
 	 * @param str The string to push
 	 * @return A string_view pointing to the stored string data.
@@ -180,6 +195,10 @@ class PolyChunkVector
 		return std::string_view(static_cast<char*>(pushOOB(str.data(), str.size())), str.size());
 	}
 
+	/*
+	 * Similar to the one that takes a string_view.
+	 * Note that it DOESN'T store a null-terminator. It stores only what the string view has.
+	 */
 	std::string_view pushOOBString(const std::string& str)
 	{
 		return std::string_view(static_cast<char*>(pushOOB(str.data(), str.size())), str.size());
@@ -187,16 +206,29 @@ class PolyChunkVector
 
 	/**
 	 * Pushes an out-of-band null-terminated string.
-	 *
-	 * It stores the string data alongside the objects, and returns a string_view pointing to the stored data.
+	 * It stores the null-terminator as well.
 	 *
 	 * @param str The string to push
-	 * @return A string_view pointing to the stored string data.
+	 * @return A pointer to the null-terminated string
 	 */
 	const char* pushOOBString(const char* str)
 	{
 		return static_cast<char*>(pushOOB(str, strlen(str) +1));
 	}
+
+	/**
+	 * Similar to the other pushOOBString, but forcibly adds a null-terminator.
+	 * This can be handy for when the code pushing elements uses StringView, but the code reading back needs null-terminated strings
+	 */
+	std::string_view pushOOBStringWithNullTerminator(std::string_view str)
+	{
+		char* ptr = reinterpret_cast<char*>(reserveOOB(str.size() + 1));
+		memcpy(ptr, str.data(), str.size());
+		ptr[str.size()] = 0;
+		return std::string_view{ptr, str.size()};
+	}
+
+	const
 
 	/**
 	 * Transverses the chunks and returns the used and total capacity of the container.
