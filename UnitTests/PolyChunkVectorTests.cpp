@@ -645,7 +645,6 @@ TEST_CASE("OOB", "[PolyChunkVector]")
 		CHECK((str2 == " "));
 		CHECK((str3 == "World!"));
 		checkChunks(v,
-			// No +1 after the string, because there shouldn't be a null-terminator when pushing string_view
 			{{PV::headerSize + strlenAlignUp("Hello", false) + strlenAlignUp(" ", false) + strlenAlignUp("World!", false), PV::baseSize}});
 
 		// Insert another string that won't fit in the 1st chunk

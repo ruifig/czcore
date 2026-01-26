@@ -185,27 +185,34 @@ class PolyChunkVector
 	 * Pushes an out-of-band string_view
 	 *
 	 * It stores the string data alongside the objects, and returns a string_view pointing to the stored data.
-	 * Note that it DOESN'T store a null-terminator. It stores only what the string view has.
+	 * A null-terminator is added, to make it easier to use the data as a C-string if needed.
 	 *
 	 * @param str The string to push
 	 * @return A string_view pointing to the stored string data.
 	 */
 	std::string_view pushOOBString(std::string_view str)
 	{
-		return std::string_view(static_cast<char*>(pushOOB(str.data(), str.size())), str.size());
+		char* ptr = reinterpret_cast<char*>(reserveOOB(str.size() + 1));
+		memcpy(ptr, str.data(), str.size());
+		// .data() does not necessarily include a null-terminator, so we need to add one seperately
+		ptr[str.size()] = 0;
+		return std::string_view{ptr, str.size()};
 	}
 
 	/*
 	 * Similar to the one that takes a string_view.
-	 * Note that it DOESN'T store a null-terminator. It stores only what the string view has.
+	 * A null-terminator is added, to make it easier to use the data as a C-string if needed.
 	 */
 	std::string_view pushOOBString(const std::string& str)
 	{
-		return std::string_view(static_cast<char*>(pushOOB(str.data(), str.size())), str.size());
+		char* ptr = reinterpret_cast<char*>(reserveOOB(str.size() + 1));
+		// c_str() already includes the null-terminator, so no need for adding it seperately.
+		memcpy(ptr, str.c_str(), str.size() + 1);
+		return std::string_view{ptr, str.size()};
 	}
 
 	/**
-	 * Pushes an out-of-band null-terminated string.
+	 * Pushes an out-of-band C-style string
 	 * It stores the null-terminator as well.
 	 *
 	 * @param str The string to push
@@ -215,20 +222,6 @@ class PolyChunkVector
 	{
 		return static_cast<char*>(pushOOB(str, strlen(str) +1));
 	}
-
-	/**
-	 * Similar to the other pushOOBString, but forcibly adds a null-terminator.
-	 * This can be handy for when the code pushing elements uses StringView, but the code reading back needs null-terminated strings
-	 */
-	std::string_view pushOOBStringWithNullTerminator(std::string_view str)
-	{
-		char* ptr = reinterpret_cast<char*>(reserveOOB(str.size() + 1));
-		memcpy(ptr, str.data(), str.size());
-		ptr[str.size()] = 0;
-		return std::string_view{ptr, str.size()};
-	}
-
-	const
 
 	/**
 	 * Transverses the chunks and returns the used and total capacity of the container.
