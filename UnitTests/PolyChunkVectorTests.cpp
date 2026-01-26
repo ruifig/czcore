@@ -652,3 +652,26 @@ TEST_CASE("OOB", "[PolyChunkVector]")
 	}
 }
 
+TEST_CASE("CommandVector")
+{
+	CommandVector v(2*1024*1024);
+
+	int count = 10;
+	std::vector<int> res;
+	for (int i = 0; i < count; i++)
+	{
+		v.push([i, &res]()
+		{
+			res.push_back(i);
+		});
+	}
+
+	v.executeAll();
+	REQUIRE_THAT(res, Catch::Matchers::Equals(std::vector<int>{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}));
+	v.clear();
+
+	res.clear();
+	v.executeAll();
+	CHECK(res.size() == 0);
+}
+
