@@ -483,9 +483,10 @@ class WeakPtrImpl
 
 	/**
 	 * Promotes the WeakPtr to a SharedPtr.
+	 * This is only available is IsObserver==false
 	 */
-	template<bool B = IsObserver, typename = std::enable_if_t<!B>> 
 	SharedPtr<T, Deleter> lock() const
+		requires(IsObserver == false)
 	{
 		if (use_count())
 		{
