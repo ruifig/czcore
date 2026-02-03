@@ -6,6 +6,14 @@
 namespace cz
 {
 
+/**
+ * Used to keep track of the current frame for logging purposes
+ * This is NOT incremented automatically by czcore. The application is responsible for incrementing this.
+ *
+ * If left with it's original value, then frame numbers are not logged.
+ */
+extern std::atomic<uint64_t> gFrameCounter;
+
 enum class LogLevel
 {
 	Off,
@@ -44,6 +52,7 @@ struct LogMessage
 {
 	LogCategoryBase* category;
 	LogLevel level;
+	uint64_t frame = std::numeric_limits<uint64_t>::max();
 	std::string msg;
 	std::string timestamp;
 	std::string context;
@@ -166,6 +175,7 @@ inline std::string_view getCZLOGContext()
 			{                                                                                                  \
 				::cz::LogMessage _cz_internal_msg;                                                             \
 				_cz_internal_msg.category = &log##name;                                                        \
+				_cz_internal_msg.frame = gFrameCounter.load();                                                 \
 				_cz_internal_msg.level = ::cz::LogLevel::logLevel;                                             \
 				_cz_internal_msg.context = getCZLOGContext();                                                  \
 				_cz_internal_msg.msg = std::format(fmtStr, ##__VA_ARGS__);                                     \

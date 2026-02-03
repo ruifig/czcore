@@ -7,6 +7,7 @@ CZ_DEFINE_LOG_CATEGORY(Main)
 namespace cz
 {
 
+std::atomic<uint64_t> gFrameCounter = std::numeric_limits<uint64_t>::max();
 
 namespace
 {
@@ -63,7 +64,12 @@ void logMessage(bool debuggerOutput, LogMessage& msg)
 	auto nowSecs = std::chrono::time_point_cast<std::chrono::seconds>(nowMs);
 	auto ms = nowMs - nowSecs;
 	msg.timestamp = std::format("{:%H:%M:%S}:{:03d}", nowSecs, ms.count());
-	msg.formattedMsg = std::format("{}:{}:{}:{}{}\n", msg.timestamp, msg.category->getName(), msg.level, msg.context, msg.msg);
+
+	// Only include frame number if the application is making use of it
+	if (msg.frame == std::numeric_limits<uint64_t>::max())
+		msg.formattedMsg = std::format("{}:{}:{}:{}{}\n", msg.timestamp, msg.category->getName(), msg.level, msg.context, msg.msg);
+	else
+		msg.formattedMsg = std::format("{}[{}]:{}:{}:{}{}\n", msg.timestamp, msg.frame, msg.category->getName(), msg.level, msg.context, msg.msg);
 
 	if (LogOutputs* logs = LogOutputs::tryGet())
 	{
