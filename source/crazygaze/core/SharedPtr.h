@@ -531,7 +531,7 @@ class WeakPtrImpl
 	}
 
 	template<typename U>
-	void acquireBlock(details::SharedPtrControlBlock<U, Deleter>* control)
+	void acquireBlock(details::SharedPtrControlBlock<U, Deleter>* control) noexcept
 	{
 		static_assert(std::is_convertible_v<U*,T*>);
 		m_control = reinterpret_cast<ControlBlock*>(control);
