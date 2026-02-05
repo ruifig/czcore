@@ -393,7 +393,7 @@ class WeakPtrImpl
 
 	constexpr WeakPtrImpl() = default;
 
-	WeakPtrImpl(const WeakPtrImpl& other)
+	WeakPtrImpl(const WeakPtrImpl& other) noexcept
 	{
 		acquireBlock(other.m_control);
 	}
