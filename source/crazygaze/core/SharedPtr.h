@@ -220,7 +220,9 @@ class SharedPtr
 
 	using ControlBlock = details::SharedPtrControlBlock<T, Deleter>;	
 
-	SharedPtr() noexcept {}
+	SharedPtr() noexcept
+	{
+	}
 
 	SharedPtr(std::nullptr_t) noexcept
 	{
@@ -242,7 +244,7 @@ class SharedPtr
 		}
 	}
 
-	~SharedPtr()
+	~SharedPtr() noexcept
 	{
 		releaseBlock();
 	}
@@ -350,7 +352,7 @@ class SharedPtr
 	}
 
 	// Explicit access to underlying SharedPtr
-	SharedRef<T, Deleter> toSharedRef() const
+	SharedRef<T, Deleter> toSharedRef() const noexcept
 	{
 		CZ_CHECK(*this);
 		return SharedRef<T,Deleter>(*this);
@@ -386,7 +388,7 @@ class WeakPtrImpl
 {
   public:
 
-	using ControlBlock = details::SharedPtrControlBlock<T>;
+	using ControlBlock = details::SharedPtrControlBlock<T, Deleter>;
 
 	template<typename U, typename UDeleter, bool IsObserver>
 	friend class WeakPtrImpl;
@@ -406,7 +408,7 @@ class WeakPtrImpl
 	}
 
 	template<typename U>
-	WeakPtrImpl(const SharedPtr<U, Deleter>& other)
+	WeakPtrImpl(const SharedPtr<U, Deleter>& other) noexcept
 	{
 		static_assert(std::is_convertible_v<U*, T*>);
 		acquireBlock(other.m_control);
@@ -418,7 +420,7 @@ class WeakPtrImpl
 		other.m_control = nullptr;
 	}
 
-	~WeakPtrImpl()
+	~WeakPtrImpl() noexcept
 	{
 		releaseBlock();
 	}
@@ -431,14 +433,14 @@ class WeakPtrImpl
 		other.m_control = nullptr;
 	}
 
-	WeakPtrImpl& operator=(const WeakPtrImpl& other)
+	WeakPtrImpl& operator=(const WeakPtrImpl& other) noexcept
 	{
 		WeakPtrImpl(other).swap(*this);
 		return *this;
 	}
 
 	template<typename U, bool IsObserver>
-	WeakPtrImpl& operator=(const WeakPtrImpl<U, Deleter, IsObserver>& other)
+	WeakPtrImpl& operator=(const WeakPtrImpl<U, Deleter, IsObserver>& other) noexcept
 	{
 		static_assert(std::is_convertible_v<U*, T*>);
 		WeakPtrImpl(other).swap(*this);
@@ -446,7 +448,7 @@ class WeakPtrImpl
 	}
 
 	template<typename U>
-	WeakPtrImpl& operator=(const SharedPtr<U, Deleter>& other)
+	WeakPtrImpl& operator=(const SharedPtr<U, Deleter>& other) noexcept
 	{
 		static_assert(std::is_convertible_v<U*, T*>);
 		WeakPtrImpl(other).swap(*this);
@@ -454,7 +456,7 @@ class WeakPtrImpl
 	}
 
 	template<typename U, bool IsObserver>
-	WeakPtrImpl& operator=(WeakPtrImpl<U, Deleter, IsObserver>&& other)
+	WeakPtrImpl& operator=(WeakPtrImpl<U, Deleter, IsObserver>&& other) noexcept
 	{
 		static_assert(std::is_convertible_v<U*, T*>);
 		WeakPtrImpl(std::move(other)).swap(*this);
@@ -471,12 +473,12 @@ class WeakPtrImpl
 		std::swap(m_control, other.m_control);
 	}
 
-	unsigned int use_count() const
+	unsigned int use_count() const noexcept
 	{
 		return (m_control) ? m_control->strongRefs() : 0;
 	}
 
-	bool expired() const
+	bool expired() const noexcept
 	{
 		return use_count() == 0 ? true : false;
 	}
@@ -485,7 +487,7 @@ class WeakPtrImpl
 	 * Promotes the WeakPtr to a SharedPtr.
 	 * This is only available is IsObserver==false
 	 */
-	SharedPtr<T, Deleter> lock() const
+	SharedPtr<T, Deleter> lock() const noexcept
 		requires(IsObserver == false)
 	{
 		if (use_count())
@@ -502,7 +504,7 @@ class WeakPtrImpl
 	 * Gets the raw pointer. This is only available for ObserverPtr.
 	 */
 	template<bool B = IsObserver, typename = std::enable_if_t<B>> 
-	T* tryGet()
+	T* tryGet() noexcept
 	{
 		if (use_count())
 		{
