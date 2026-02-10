@@ -616,6 +616,14 @@ class CommandVector
 	{
 		m_cmds.clear(resetToOneChunk);
 	}
+
+	/**
+	 * Returns the number of elements in the container
+	 */
+	size_t size() const
+	{
+		return m_cmds.size();
+	}
 };
 
 } // namespace cz
