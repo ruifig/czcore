@@ -510,7 +510,9 @@ class SharedPtr
 	{
 		static_assert(std::is_convertible_v<U*,T*>);
 		m_control.ctrl = reinterpret_cast<ControlBlock*>(control);
+#if CZ_SHAREDPTR_STACKTRACES
 		m_control.trace = nullptr;
+#endif
 		if (m_control.ctrl)
 		{
 			m_control.ctrl->incStrong();
@@ -693,7 +695,9 @@ class WeakPtrImpl
 	{
 		static_assert(std::is_convertible_v<U*,T*>);
 		m_control.ctrl = reinterpret_cast<ControlBlock*>(control);
+#if CZ_SHAREDPTR_STACKTRACES
 		m_control.trace = nullptr;
+#endif
 		if (m_control.ctrl)
 		{
 			m_control.ctrl->incWeak();
