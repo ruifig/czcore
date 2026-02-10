@@ -20,6 +20,7 @@
 #include <condition_variable>
 #include <string_view>
 #include <span>
+#include <stacktrace>
 
 CZ_THIRD_PARTY_INCLUDES_START
 #include "utf8.h"

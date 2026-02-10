@@ -1,4 +1,6 @@
 
+option(CZCORE_ENABLE_SHAREDPTR_STACKTRACES "Enable support for stack tracking in SharedPtr/WeakPtr" OFF)
+
 set(ALL_FILES
 	"crazygaze/core/Algorithm.h"
 	"crazygaze/core/AsyncCommandQueue.cpp"
@@ -13,6 +15,7 @@ set(ALL_FILES
 	"crazygaze/core/FNVHash.h"
 	"crazygaze/core/IniFile.cpp"
 	"crazygaze/core/IniFile.h"
+	"crazygaze/core/LinkedList.h"
 	"crazygaze/core/Logging.cpp"
 	"crazygaze/core/Logging.h"
 	"crazygaze/core/LogOutputs.cpp"
@@ -60,6 +63,8 @@ source_group(
 	PREFIX ""
 	FILES ${ALL_FILES}
 )
+
+target_compile_definitions(czcore PUBLIC CZ_SHAREDPTR_STACKTRACES=$<BOOL:${CZCORE_ENABLE_SHAREDPTR_STACKTRACES}>)
 
 set_target_properties(czcore PROPERTIES CXX_STANDARD 26)
 target_compile_options(czcore PRIVATE /Wall)

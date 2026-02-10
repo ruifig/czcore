@@ -33,7 +33,7 @@ struct Logger
 };
 
 auto foo = makeShared<MyFoo>("Hello");
-// Keep a WeakPtr means once the MyFoo object is destroyed, the memory is not actually de-allocated
+// Keeping a WeakPtr means once the MyFoo object is destroyed, the memory is not actually de-allocated
 WeakPtr<MyFoo> wfoo = foo;
 // Passing a raw pointer to Logger
 Logger logger(foo.get());
@@ -54,6 +54,31 @@ easier to spot these kind of bugs.
 #endif
 
 
+/**
+ * The library allows capturing stack traces, which helps figure out leaks and dangling weak pointers.
+ * To enable support, set the CZCORE_ENABLE_STACKTRACES CMake option to ON.
+ * Setting that option compiles in stack trace support, BUT doesn't enable it by default, to minimize performance impact.
+ *
+ * To enable stack traces for a specific type T you can:
+ * - Define a static member `enable_sharedptr_stacktraces` in your type:
+ *		``static constexpr bool enable_sharedptr_stacktraces = true;```
+ * - To enable stack traces for all types, you define CZ_SHAREDPTR_STACKTRACES_DEFAULT macro as `std::true_type`
+ */
+
+#ifndef CZ_SHAREDPTR_STACKTRACES
+	#define CZ_SHAREDPTR_STACKTRACES 0
+#endif
+
+#ifndef CZ_SHAREDPTR_STACKTRACES_DEFAULT
+	// By default, stack traces are disabled for all types, to minimize performance impact.
+	#define CZ_SHAREDPTR_STACKTRACES_DEFAULT std::false_type
+#endif
+
+#if CZ_SHAREDPTR_STACKTRACES
+	#include "crazygaze/core/LinkedList.h"
+#endif
+
+
 namespace cz
 {
 
@@ -63,18 +88,82 @@ inline void sharedPtrDeleter(T* obj)
 	obj->~T();
 }
 
+/**
+ * Used to extract stack traces from SharedPtr and WeakPtr instances
+ */
+struct SharedPtrTraces
+{
+	struct Entry
+	{
+		std::chrono::high_resolution_clock::time_point ts;
+		uint64_t frame;
+		std::stacktrace trace;
+	};
+	
+	std::vector<Entry> strong;
+	std::vector<Entry> weak;
+};
+
 namespace details
 {
+
+	template<typename T, class = void>
+	struct enable_sharedptr_stacktraces : CZ_SHAREDPTR_STACKTRACES_DEFAULT
+	{
+	};
+
+	// Use SFINAE to check if T has a "enable_sharedptr_stacktraces" member, and if so, use it as the value for
+	// enable_sharedptr_stacktraces<T>::value
+	template<typename T>
+	struct enable_sharedptr_stacktraces<T, std::void_t<decltype(T::enable_sharedptr_stacktraces)>>
+		: std::bool_constant<T::enable_sharedptr_stacktraces>
+	{
+	};
+
+	template<class T>
+	inline constexpr bool enable_sharedptr_stacktraces_v = enable_sharedptr_stacktraces<T>::value;
+
+#if CZ_SHAREDPTR_STACKTRACES
+	struct SharedPtrTrace : public DoublyLinked<SharedPtrTrace>
+	{
+		explicit SharedPtrTrace(bool isStrongRef, DoublyLinkedList<SharedPtrTrace>* outer)
+			: isStrongRef(isStrongRef)
+			, outer(outer)
+		{
+			if (outer)
+			{
+				timestamp = std::chrono::high_resolution_clock::now();
+				frame = gFrameCounter.load();
+				trace = std::stacktrace::current();
+				outer->pushBack(this);
+			}
+		}
+		
+		~SharedPtrTrace()
+		{
+			if (outer)
+				outer->remove(this);
+		}
+			
+		bool isStrongRef = false;
+		std::chrono::high_resolution_clock::time_point timestamp;
+		uint64_t frame;
+		std::stacktrace trace;
+		DoublyLinkedList<SharedPtrTrace>* outer = nullptr;
+	};
+
+#endif
 
 	class BaseSharedPtrControlBlock
 	{
 	  public:
 
+		BaseSharedPtrControlBlock([[maybe_unused]] size_t size)
 #if CZ_SHAREDPTR_CLEAR_MEM
-		BaseSharedPtrControlBlock(size_t size) : size(size) {}
-#else
-		BaseSharedPtrControlBlock(size_t) {}
+			: size(size)
 #endif
+		{
+		}
 
 		template<typename T>
 		T* toObject()
@@ -123,10 +212,57 @@ namespace details
 			size_t allocSize = sizeof(BaseSharedPtrControlBlock) + sizeof(T);
 			void* basePtr = malloc(allocSize);
 			BaseSharedPtrControlBlock* control = new (basePtr) BaseSharedPtrControlBlock(sizeof(T));
+
+			#if CZ_SHAREDPTR_STACKTRACES
+			if constexpr(details::enable_sharedptr_stacktraces_v<T>)
+			{
+				control->traceData = std::make_unique<StackTraceData>();
+				control->traceData->firstTrace = control->createStackTrace(true);
+			}
+			#endif
+
 			return control + 1;
 		}
 
+		#if CZ_SHAREDPTR_STACKTRACES
+		std::unique_ptr<SharedPtrTrace> createStackTrace(bool isStrongRef)
+		{
+			if (traceData)
+				return std::make_unique<SharedPtrTrace>(isStrongRef, &traceData->traceList);
+			else
+				return nullptr;
+		}
+
+		SharedPtrTraces getTraces()
+		{
+			SharedPtrTraces res;
+			if (traceData)
+			{
+				for(const SharedPtrTrace* ele : traceData->traceList)
+				{
+					if (ele->isStrongRef)
+						res.strong.emplace_back(ele->timestamp, ele->frame, ele->trace);
+					else
+						res.weak.emplace_back(ele->timestamp, ele->frame, ele->trace);
+				}
+			}
+			return res;
+		}
+		#endif
+
 	  protected:
+
+		#if CZ_SHAREDPTR_STACKTRACES
+		struct StackTraceData
+		{
+			DoublyLinkedList<SharedPtrTrace> traceList;
+			std::unique_ptr<SharedPtrTrace> firstTrace;
+		};
+		// Intentionally putting this in a unique_ptr, so it's out of the same cache line, and it's not loaded every time
+		// we need to dereference a SharedPtr/WeakPtr.
+		std::unique_ptr<StackTraceData> traceData;
+		#endif
+
 		unsigned int weak = 0;
 		unsigned int strong = 0;
 
@@ -246,19 +382,19 @@ class SharedPtr
 
 	~SharedPtr() noexcept
 	{
-		releaseBlock();
+		m_control.release();
 	}
 
 	SharedPtr(const SharedPtr& other) noexcept
 	{
-		acquireBlock(other.m_control);
+		acquireBlock(other.m_control.ctrl);
 	}
 
 	template<typename U>
 	SharedPtr(const SharedPtr<U, Deleter>& other) noexcept
 	{
 		static_assert(std::is_convertible_v<U*, T*>);
-		acquireBlock(other.m_control);
+		acquireBlock(other.m_control.ctrl);
 	}
 
 	SharedPtr(SharedPtr&& other) noexcept
@@ -270,8 +406,7 @@ class SharedPtr
 	SharedPtr(SharedPtr<U>&& other) noexcept
 	{
 		static_assert(std::is_convertible_v<U*, T*>);
-		m_control = reinterpret_cast<ControlBlock*>(other.m_control);
-		other.m_control = nullptr;
+		std::swap(m_control, reinterpret_cast<ControlHolder&>(other.m_control));
 	}
 
 	SharedPtr& operator=(const SharedPtr& other) noexcept
@@ -304,15 +439,15 @@ class SharedPtr
 
 	T* operator->() const noexcept
 	{
-		CZ_CHECK(m_control);
-		return m_control->toObject<T>();
+		CZ_CHECK(m_control.ctrl);
+		return m_control.ctrl->toObject<T>();
 	}
 
 	T* get() const noexcept
 	{
-		if(m_control)
+		if(m_control.ctrl)
 		{
-			return m_control->template toObject<T>();
+			return m_control.ctrl->template toObject<T>();
 		}
 		else
 		{
@@ -322,18 +457,18 @@ class SharedPtr
 
 	T& operator*() const noexcept
 	{
-		CZ_CHECK(m_control);
-		return *m_control->toObject<T>();
+		CZ_CHECK(m_control.ctrl);
+		return *m_control.ctrl->toObject<T>();
 	}
 
 	explicit operator bool() const noexcept
 	{
-		return m_control ? true : false;
+		return m_control.ctrl ? true : false;
 	}
 
 	unsigned int use_count() const noexcept
 	{
-		return m_control ? m_control->strongRefs() : 0;
+		return m_control.ctrl ? m_control.ctrl->strongRefs() : 0;
 	}
 
 	bool unique() const noexcept
@@ -343,7 +478,7 @@ class SharedPtr
 
 	void reset() noexcept
 	{
-		releaseBlock();
+		m_control.release();
 	}
 
 	void swap(SharedPtr& other) noexcept
@@ -358,29 +493,54 @@ class SharedPtr
 		return SharedRef<T,Deleter>(*this);
 	}
 
-  private:
-
-	void releaseBlock() noexcept
+	SharedPtrTraces getTraces() const noexcept
 	{
-		if (m_control)
-		{
-			m_control->decStrong();
-			m_control = nullptr;
-		}
+#if CZ_SHAREDPTR_STACKTRACES
+		return m_control.ctrl ? m_control.ctrl->getTraces() : SharedPtrTraces{};
+#else
+		return {};
+#endif
 	}
+
+
+  private:
 
 	template<typename U>
 	void acquireBlock(details::SharedPtrControlBlock<U, Deleter>* control) noexcept
 	{
 		static_assert(std::is_convertible_v<U*,T*>);
-		m_control = reinterpret_cast<ControlBlock*>(control);
-		if (m_control)
+		m_control.ctrl = reinterpret_cast<ControlBlock*>(control);
+		m_control.trace = nullptr;
+		if (m_control.ctrl)
 		{
-			m_control->incStrong();
+			m_control.ctrl->incStrong();
+#if CZ_SHAREDPTR_STACKTRACES
+			m_control.trace = m_control.ctrl->createStackTrace(true);
+#endif
 		}
 	}
 
-	ControlBlock* m_control = nullptr;
+	// Using a struct instead of ControlBlock directly, 
+	// so it's easier to deal with the stack traces (if enabled)
+	struct ControlHolder
+	{
+		ControlBlock* ctrl = nullptr;
+#if CZ_SHAREDPTR_STACKTRACES
+		std::unique_ptr<details::SharedPtrTrace> trace;
+#endif
+
+		void release()
+		{
+			if (ctrl)
+			{
+				ctrl->decStrong();
+				ctrl = nullptr;
+#if CZ_SHAREDPTR_STACKTRACES
+				trace = nullptr;
+#endif
+			}
+		}
+	} m_control;
 };
 
 template<typename T, typename Deleter, bool IsObserver>
@@ -397,40 +557,38 @@ class WeakPtrImpl
 
 	WeakPtrImpl(const WeakPtrImpl& other) noexcept
 	{
-		acquireBlock(other.m_control);
+		acquireBlock(other.m_control.ctrl);
 	}
 
 	template<typename U, bool IsObserver>
 	WeakPtrImpl(const WeakPtrImpl<U, Deleter, IsObserver>& other) noexcept
 	{
 		static_assert(std::is_convertible_v<U*, T*>);
-		acquireBlock(other.m_control);
+		acquireBlock(other.m_control.ctrl);
 	}
 
 	template<typename U>
 	WeakPtrImpl(const SharedPtr<U, Deleter>& other) noexcept
 	{
 		static_assert(std::is_convertible_v<U*, T*>);
-		acquireBlock(other.m_control);
+		acquireBlock(other.m_control.ctrl);
 	}
 
 	WeakPtrImpl(WeakPtrImpl&& other) noexcept
 	{
-		m_control = other.m_control;
-		other.m_control = nullptr;
+		std::swap(m_control, other.m_control);
 	}
 
 	~WeakPtrImpl() noexcept
 	{
-		releaseBlock();
+		m_control.release();
 	}
 
 	template<typename U, bool IsObserver>
 	WeakPtrImpl(WeakPtrImpl<U, Deleter, IsObserver>&& other) noexcept
 	{
 		static_assert(std::is_convertible_v<U*, T*>);
-		m_control = reinterpret_cast<ControlBlock*>(other.m_control);
-		other.m_control = nullptr;
+		std::swap(m_control, reinterpret_cast<ControlHolder&>(other.m_control));
 	}
 
 	WeakPtrImpl& operator=(const WeakPtrImpl& other) noexcept
@@ -475,7 +633,7 @@ class WeakPtrImpl
 
 	unsigned int use_count() const noexcept
 	{
-		return (m_control) ? m_control->strongRefs() : 0;
+		return m_control.ctrl ? m_control.ctrl->strongRefs() : 0;
 	}
 
 	bool expired() const noexcept
@@ -492,7 +650,7 @@ class WeakPtrImpl
 	{
 		if (use_count())
 		{
-			return SharedPtr<T, Deleter>(m_control->obj());
+			return SharedPtr<T, Deleter>(m_control.ctrl->obj());
 		}
 		else
 		{
@@ -508,42 +666,64 @@ class WeakPtrImpl
 	{
 		if (use_count())
 		{
-			return m_control->obj();
+			return m_control.ctrl->obj();
 		}
 		else
 		{
 			// If expired, then release the block.
 			// This is so WeakPtr/ObserverPtr release control blocks as soon as possible (to free up memory)
-			if (m_control)
-				releaseBlock();
+			m_control.release();
 
 			return nullptr;
 		}
 	}
 
-  private:
-
-	void releaseBlock()
+	SharedPtrTraces getTraces() const noexcept
 	{
-		if (m_control)
-		{
-			m_control->decWeak();
-			m_control = nullptr;
-		}
+#if CZ_SHAREDPTR_STACKTRACES
+		return m_control.ctrl ? m_control.ctrl->getTraces() : SharedPtrTraces{};
+#else
+		return {};
+#endif
 	}
+  private:
 
 	template<typename U>
 	void acquireBlock(details::SharedPtrControlBlock<U, Deleter>* control) noexcept
 	{
 		static_assert(std::is_convertible_v<U*,T*>);
-		m_control = reinterpret_cast<ControlBlock*>(control);
-		if (m_control)
+		m_control.ctrl = reinterpret_cast<ControlBlock*>(control);
+		m_control.trace = nullptr;
+		if (m_control.ctrl)
 		{
-			m_control->incWeak();
+			m_control.ctrl->incWeak();
+#if CZ_SHAREDPTR_STACKTRACES
+			m_control.trace = m_control.ctrl->createStackTrace(false);
+#endif
 		}
 	}
 
-	ControlBlock* m_control = nullptr;
+	// Using a struct instead of ControlBlock directly, 
+	// so it's easier to deal with the stack traces (if enabled)
+	struct ControlHolder
+	{
+		ControlBlock* ctrl = nullptr;
+#if CZ_SHAREDPTR_STACKTRACES
+		std::unique_ptr<details::SharedPtrTrace> trace;
+#endif
+
+		void release()
+		{
+			if (ctrl)
+			{
+				ctrl->decWeak();
+				ctrl = nullptr;
+#if CZ_SHAREDPTR_STACKTRACES
+				trace = nullptr;
+#endif
+			}
+		}
+	} m_control;
 };
 
 template <typename T, typename Deleter = details::SharedPtrDefaultDeleter>
