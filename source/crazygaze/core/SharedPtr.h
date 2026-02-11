@@ -100,6 +100,13 @@ struct SharedPtrTraces
 		std::stacktrace trace;
 	};
 	
+	/**
+	 * This is the stack trace of when the control block was created.
+	 * This does NOT represent an active reference. It's purpose is to help understand where the object was created,
+	 * even if the original strong reference is gone or even if the object was already destroyed (but there are still weak
+	 * references keeping the control block alive).
+	 */
+	Entry creationTrace;
 	std::vector<Entry> strong;
 	std::vector<Entry> weak;
 };
@@ -126,8 +133,15 @@ namespace details
 #if CZ_SHAREDPTR_STACKTRACES
 	struct SharedPtrTrace : public DoublyLinked<SharedPtrTrace>
 	{
-		explicit SharedPtrTrace(bool isStrongRef, DoublyLinkedList<SharedPtrTrace>* outer)
-			: isStrongRef(isStrongRef)
+		enum class Type
+		{
+			Creation,
+			StrongRef,
+			WeakRef
+		};
+
+		explicit SharedPtrTrace(Type type, DoublyLinkedList<SharedPtrTrace>* outer)
+			: type(type)
 			, outer(outer)
 		{
 			if (outer)
@@ -145,7 +159,7 @@ namespace details
 				outer->remove(this);
 		}
 			
-		bool isStrongRef = false;
+		Type type;
 		std::chrono::high_resolution_clock::time_point timestamp;
 		uint64_t frame;
 		std::stacktrace trace;
@@ -217,7 +231,7 @@ namespace details
 			if constexpr(details::enable_sharedptr_stacktraces_v<T>)
 			{
 				control->traceData = std::make_unique<StackTraceData>();
-				control->traceData->firstTrace = control->createStackTrace(true);
+				control->traceData->firstTrace = control->createStackTrace(SharedPtrTrace::Type::Creation);
 			}
 			#endif
 
@@ -225,13 +239,13 @@ namespace details
 		}
 
 		#if CZ_SHAREDPTR_STACKTRACES
-		std::unique_ptr<SharedPtrTrace> createStackTrace(bool isStrongRef)
+		std::unique_ptr<SharedPtrTrace> createStackTrace(SharedPtrTrace::Type type)
 		{
 			if (traceData)
 			{
 				// Using `new` instead of make_unique, so `std::make_unique` doesn't show up in the stacktrace.
 				// This makes it easier for tools by allowing them to skip all the frames at the top that start with `cz::`
-				return std::unique_ptr<SharedPtrTrace>(new SharedPtrTrace(isStrongRef, &traceData->traceList));
+				return std::unique_ptr<SharedPtrTrace>(new SharedPtrTrace(type, &traceData->traceList));
 			}
 			else
 			{
@@ -246,10 +260,17 @@ namespace details
 			{
 				for(const SharedPtrTrace* ele : traceData->traceList)
 				{
-					if (ele->isStrongRef)
-						res.strong.emplace_back(ele->timestamp, ele->frame, ele->trace);
+					SharedPtrTraces::Entry entry{ele->timestamp, ele->frame, ele->trace};
+					if (ele->type == SharedPtrTrace::Type::Creation)
+						res.creationTrace = std::move(entry);
+					else if (ele->type == SharedPtrTrace::Type::StrongRef)
+						res.strong.emplace_back(std::move(entry));
+					else if (ele->type == SharedPtrTrace::Type::WeakRef)
+						res.weak.emplace_back(std::move(entry));
 					else
-						res.weak.emplace_back(ele->timestamp, ele->frame, ele->trace);
+					{
+						CZ_CHECK(false);
+					}
 				}
 			}
 			return res;
@@ -523,7 +544,7 @@ class SharedPtr
 		{
 			m_control.ctrl->incStrong();
 #if CZ_SHAREDPTR_STACKTRACES
-			m_control.trace = m_control.ctrl->createStackTrace(true);
+			m_control.trace = m_control.ctrl->createStackTrace(details::SharedPtrTrace::Type::StrongRef);
 #endif
 		}
 	}
@@ -708,7 +729,7 @@ class WeakPtrImpl
 		{
 			m_control.ctrl->incWeak();
 #if CZ_SHAREDPTR_STACKTRACES
-			m_control.trace = m_control.ctrl->createStackTrace(false);
+			m_control.trace = m_control.ctrl->createStackTrace(details::SharedPtrTrace::Type::WeakRef);
 #endif
 		}
 	}
