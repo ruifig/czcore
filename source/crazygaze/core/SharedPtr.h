@@ -498,6 +498,11 @@ class SharedPtr
 		return m_control.ctrl ? m_control.ctrl->strongRefs() : 0;
 	}
 
+	unsigned int weak_use_count() const noexcept
+	{
+		return m_control.ctrl ? m_control.ctrl->weakRefs() : 0;
+	}
+
 	bool unique() const noexcept
 	{
 		return use_count() == 1;
@@ -663,6 +668,11 @@ class WeakPtrImpl
 	unsigned int use_count() const noexcept
 	{
 		return m_control.ctrl ? m_control.ctrl->strongRefs() : 0;
+	}
+
+	unsigned int weak_use_count() const noexcept
+	{
+		return m_control.ctrl ? m_control.ctrl->weakRefs() : 0;
 	}
 
 	bool expired() const noexcept
