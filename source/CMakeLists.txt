@@ -1,6 +1,4 @@
 
-option(CZCORE_ENABLE_SHAREDPTR_STACKTRACES "Enable support for stack tracking in SharedPtr/WeakPtr" OFF)
-
 set(ALL_FILES
 	"crazygaze/core/Algorithm.h"
 	"crazygaze/core/AsyncCommandQueue.cpp"
@@ -63,8 +61,6 @@ source_group(
 	PREFIX ""
 	FILES ${ALL_FILES}
 )
-
-target_compile_definitions(czcore PUBLIC CZ_SHAREDPTR_STACKTRACES=$<BOOL:${CZCORE_ENABLE_SHAREDPTR_STACKTRACES}>)
 
 set_target_properties(czcore PROPERTIES CXX_STANDARD 26)
 target_compile_options(czcore PRIVATE /Wall)

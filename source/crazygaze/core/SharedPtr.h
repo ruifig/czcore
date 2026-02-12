@@ -56,15 +56,15 @@ easier to spot these kind of bugs.
 
 /**
  * The library allows capturing stack traces, which helps figure out leaks and dangling weak pointers.
- * To enable support, set the CZCORE_ENABLE_STACKTRACES CMake option to ON.
- * Setting that option compiles in stack trace support, BUT doesn't enable it by default, to minimize performance impact.
+ * To enable support, set CZ_SHAREDPTR_STACKTRACES to 1 in your build system (or 0 to disable it).
+ * If not set, it defaults to 1 in debug/development builds, and 0 in release builds.
  *
- * To enable stack traces for a specific type T you can:
- * - Define a static member `enable_sharedptr_stacktraces` in your type:
+ * When set to 1, support is compiled in, BUT not actually enabled.
+ * It can be enabled on a per-type basis, or enabled for all types by changing CZ_SHAREDPTR_STACKTRACES_DEFAULT.
+ *
+ * To enable for a specific type T (and any derived types) you can add a static member in your type:
  *		``static constexpr bool enable_sharedptr_stacktraces = true;```
- * - To enable stack traces for all types, you define CZ_SHAREDPTR_STACKTRACES_DEFAULT macro as `std::true_type`
  */
-
 #ifndef CZ_SHAREDPTR_STACKTRACES
 	#if CZ_DEBUG || CZ_DEVELOPMENT 
 		#define CZ_SHAREDPTR_STACKTRACES 1
@@ -73,6 +73,10 @@ easier to spot these kind of bugs.
 	#endif
 #endif
 
+
+/**
+ * Set this to `std::true_type` in your build system to enable stack traces for all types by default.
+ */
 #ifndef CZ_SHAREDPTR_STACKTRACES_DEFAULT
 	// By default, stack traces are disabled for all types, to minimize performance impact.
 	#define CZ_SHAREDPTR_STACKTRACES_DEFAULT std::false_type
