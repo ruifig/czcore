@@ -66,7 +66,11 @@ easier to spot these kind of bugs.
  */
 
 #ifndef CZ_SHAREDPTR_STACKTRACES
-	#define CZ_SHAREDPTR_STACKTRACES 0
+	#if CZ_DEBUG || CZ_DEVELOPMENT 
+		#define CZ_SHAREDPTR_STACKTRACES 1
+	#else
+		#define CZ_SHAREDPTR_STACKTRACES 0
+	#endif
 #endif
 
 #ifndef CZ_SHAREDPTR_STACKTRACES_DEFAULT
@@ -128,7 +132,12 @@ namespace details
 	};
 
 	template<class T>
-	inline constexpr bool enable_sharedptr_stacktraces_v = enable_sharedptr_stacktraces<T>::value;
+	inline constexpr bool enable_sharedptr_stacktraces_v =
+#if CZ_SHAREDPTR_STACKTRACES
+		 enable_sharedptr_stacktraces<T>::value;
+#else
+		false;
+#endif
 
 #if CZ_SHAREDPTR_STACKTRACES
 	struct SharedPtrTrace : public DoublyLinked<SharedPtrTrace>
