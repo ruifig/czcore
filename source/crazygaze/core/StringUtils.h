@@ -545,6 +545,12 @@ bool fromDelimitedString(std::string_view str, T* dst, int count, char delim = '
 	return idx == count ? true : false;
 }
 
+
+/**
+ * Calculates the levenshtein distance between two strings.
+ */
+int levenshtein_distance(std::string_view s1, std::string_view s2);
+
 } // namespace cz
 
 
