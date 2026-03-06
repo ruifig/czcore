@@ -185,7 +185,7 @@ class File
 		return readAllImpl(path, logErrors);
 	}
 
-	static Buffer try_readAll(const fs::path& path)
+	static Buffer tryReadAll(const fs::path& path)
 	{
 		return readAllImpl(path, false);
 	}
