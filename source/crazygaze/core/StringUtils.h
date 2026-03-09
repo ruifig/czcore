@@ -494,7 +494,10 @@ bool fromString(std::string_view str, T& dst)
 	}
 	else
 	{
-		return std::from_chars(str.data(), str.data() + str.length(), dst).ec == std::errc();
+		if (str.size()>2 && (str[0] == '0' && (str[1] == 'x' || str[1] == 'X')))
+			return std::from_chars(str.data() + 2, str.data() + str.length(), dst, 16).ec == std::errc();
+		else
+			return std::from_chars(str.data(), str.data() + str.length(), dst).ec == std::errc();
 	}
 }
 
