@@ -191,12 +191,12 @@ void FileLogOutput::finish()
 FileLogOutput::~FileLogOutput()
 {
 	finish();
+	m_finished.wait();
+
 	if (!m_file.is_open())
 	{
 		return;
 	}
-
-	m_finished.wait();
 
 	if (LogOutputs* outputs = LogOutputs::tryGet())
 	{
