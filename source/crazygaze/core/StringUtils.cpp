@@ -43,7 +43,7 @@ octet_iterator utf16to8_lenient (u16bit_iterator start, u16bit_iterator end, oct
 		uint32_t cp = utf8::internal::mask16(*start++);
 		// Take care of surrogate pairs first
 		if (utf8::internal::is_lead_surrogate(cp)) {
-			if (start >= end) // #RVF : This is the change compared to the original code
+			if (start >= end) // >>>> This is the change compared to the original code
 				return result;
 			uint32_t trail_surrogate = utf8::internal::mask16(*start++);
 			cp = (cp << 10) + trail_surrogate + utf8::internal::SURROGATE_OFFSET;

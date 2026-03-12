@@ -7,7 +7,6 @@ namespace cz
 {
 
 #if CZ_WINDOWS
-// #CMAKE : Test this for when building with UNICODE
 std::string getWin32Error(DWORD err, const char* funcname)
 {
 	LPVOID lpMsgBuf;
