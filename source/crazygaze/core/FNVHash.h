@@ -219,6 +219,16 @@ struct Hash
 		return hval;
 	}
 
+	static uint32_t fnv_32a(std::string_view str, uint32_t hval = FNV1_32A_INIT)
+	{
+		return fnv_32a_buf(str.data(), str.size(), hval);
+	}
+
+	static uint64_t fnv_64a(std::string_view str, uint64_t hval = FNV1A_64_INIT)
+	{
+		return fnv_64a_buf(str.data(), str.size(), hval);
+	}
+
 };
 
 } // namespace cz

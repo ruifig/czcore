@@ -129,6 +129,21 @@ void* alignedAlloc(size_t alignment, size_t size, size_t* adjustedSize = nullptr
  */
 void alignedFree(void* ptr);
 
+template<typename What>
+constexpr bool isOneOf(What&& what)
+{
+	return false;
+}
+
+/**
+ * Given a value and a list of possible values, checks if the value is equal to any of the possible values.
+ */
+template <typename What, typename First, typename... Rest>
+constexpr inline bool isOneOf(What&& what, First&& first, Rest&&... rest)
+{
+	return what == first || isOneOf(std::forward<What>(what), std::forward<Rest>(rest)...);
+}
+
 
 }
 
