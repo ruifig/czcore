@@ -1,5 +1,6 @@
 #pragma once
 
+#include "SharedPtr.h"
 
 /**
  * Defines the bitwise operators for an enum class that is used as a flags enum.
