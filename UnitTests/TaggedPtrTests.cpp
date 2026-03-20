@@ -1,16 +1,6 @@
 #include "TestUtils.h"
 
 using namespace cz;
-using namespace cz::hash;
-
-
-struct Foo
-{
-	int a;
-	int b;
-	double c;
-};
-
 
 namespace
 {
@@ -56,4 +46,5 @@ TEST_CASE("TaggedPtr", "[TaggedPtr]")
 	ptr.setTag(12345);
 	CHECK(*ptr == "Hello World");
 }
+
 
