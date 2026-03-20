@@ -47,9 +47,13 @@ TEST_CASE("TaggedPtr", "[TaggedPtr]")
 	testTaggedPtr<int>();
 	testTaggedPtr<double>();
 
-	// Test derreferencing the pointer
+	TaggedPtr<std::string> emptyPtr;
+	emptyPtr.setTag(10);
+
+	// Test deferencing the pointer
 	std::string str = "Hello World";
 	TaggedPtr<std::string> ptr(&str);
+	ptr.setTag(12345);
 	CHECK(*ptr == "Hello World");
 }
 

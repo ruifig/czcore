@@ -1,5 +1,7 @@
 
 set(ALL_FILES
+	"crazygaze/core/czcore.natvis"
+	
 	"crazygaze/core/Algorithm.h"
 	"crazygaze/core/AsyncCommandQueue.cpp"
 	"crazygaze/core/AsyncCommandQueue.h"

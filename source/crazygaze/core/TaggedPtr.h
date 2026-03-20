@@ -38,6 +38,10 @@ class TaggedPtr
 	static constexpr int TotalTagBits = LowTagBits + HighTagBits;
 	static constexpr int PointerBits = sizeof(void*) * 8 - TotalTagBits;
 	static constexpr uint32_t MaxTagValue = (1U << TotalTagBits) - 1;
+	#if defined(__x86_64__) || defined(_M_X64)
+	// Having this as a constexpr, so it's easier to create the natvis
+	static constexpr uint64_t x64SignBit = 1ULL << (PointerBits-1); 
+	#endif
 
 	// Sanity checks to make sure everything is ok
 	static_assert(CanonicalAddressSize > 0 && CanonicalAddressSize <= 64);
@@ -90,8 +94,7 @@ class TaggedPtr
 	{
 		uint64_t p = m_bits.ptr;
 		#if defined(__x86_64__) || defined(_M_X64)
-		constexpr uint64_t signBit = 1ULL << (PointerBits - 1);
-		p = (p ^ signBit) - signBit;
+		p = (p ^ x64SignBit) - x64SignBit;
 		p <<= LowTagBits;
 		#endif
 		return reinterpret_cast<T*>(p);

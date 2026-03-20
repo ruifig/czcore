@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!--
+
+!-->
+
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+
+  <Type Name="cz::SharedPtr&lt;*&gt;">
+      <DisplayString Condition="m_control.ctrl == 0">empty</DisplayString>
+      <DisplayString Condition="(m_control.ctrl != 0)">SharedPtr {*($T1*)(m_control.ctrl+1)} [{m_control.ctrl-&gt;strong} strong ref, {m_control.ctrl-&gt;weak} weak refs] [{*m_control.ctrl}]</DisplayString>
+      <Expand>
+          <Item Condition="m_control.ctrl != 0" Name="[ptr]">*($T1*)(m_control.ctrl+1)</Item>
+          <Item Condition="m_control.ctrl != 0" Name="[control block]">*m_control.ctrl</Item>
+      </Expand>
+  </Type>
+
+  <Type Name="cz::WeakPtrImpl&lt;*&gt;">
+      <DisplayString Condition="m_control.ctrl == 0">empty</DisplayString>
+      <DisplayString Condition="(m_control.ctrl != 0) &amp;&amp; (m_control.ctrl-&gt;strong == 0)"> WeakPtrImpl expired [{m_control.ctrl-&gt;strong} strong ref, {m_control.ctrl-&gt;weak} weak refs] [{*m_control.ctrl}]</DisplayString>
+      <DisplayString Condition="(m_control.ctrl != 0) &amp;&amp; (m_control.ctrl-&gt;strong > 0)"> WeakPtrImpl {*($T1*)(m_control.ctrl+1)} [{m_control.ctrl-&gt;strong} strong ref, {m_control.ctrl-&gt;weak} weak refs] [{*m_control.ctrl}]</DisplayString>
+      <Expand>
+          <Item Condition="m_control.ctrl != 0" Name="[ptr]">*($T1*)(m_control.ctrl+1)</Item>
+          <Item Condition="m_control.ctrl != 0" Name="[control block]">*m_control.ctrl</Item>
+      </Expand>
+  </Type>
+
+  <Type Name="cz::TaggedPtr&lt;*&gt;">
+
+    <DisplayString Condition="m_bits.ptr == 0">
+      ptr=null, tag={m_bits.tag}, raw=0x{m_raw,x}, sign=0x{x64SignBit,x}
+    </DisplayString>
+
+    <DisplayString Condition="m_bits.ptr != 0">
+      ptr={($T1*)(((m_bits.ptr ^ x64SignBit) - x64SignBit) &lt;&lt; LowTagBits)}, tag={m_bits.tag}, raw=0x{m_raw,x}
+    </DisplayString>
+
+	<Expand>
+		<Item Name="ptr">
+		  ($T1*)(((m_bits.ptr ^ x64SignBit) - x64SignBit) &lt;&lt; LowTagBits)
+		</Item>
+		<Item Name="tag">
+		  m_bits.tag
+		</Item>
+		<Item Name="raw">
+		  m_raw,x
+		</Item>
+	</Expand>
+
+  </Type>
+</AutoVisualizer>
+
