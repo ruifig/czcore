@@ -127,6 +127,15 @@ class TaggedPtr
 		return *getPtr();
 	}
 
+	template<
+		typename U = T,
+		typename = std::enable_if_t<!std::is_same_v<T, void>>
+		>
+	U* operator->() const
+	{
+		return getPtr();
+	}
+
 };
 
 #endif

@@ -45,6 +45,7 @@ TEST_CASE("TaggedPtr", "[TaggedPtr]")
 	TaggedPtr<std::string> ptr(&str);
 	ptr.setTag(12345);
 	CHECK(*ptr == "Hello World");
+	CHECK(std::string(ptr->c_str()) == "Hello World");
 }
 
 
