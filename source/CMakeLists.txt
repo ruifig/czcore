@@ -10,6 +10,7 @@ set(ALL_FILES
 	"crazygaze/core/CorePreSetup.h"
 	"crazygaze/core/File.cpp"
 	"crazygaze/core/File.h"
+	"crazygaze/core/FixedHeapArray.h"
 	"crazygaze/core/FNVHash.h"
 	"crazygaze/core/IniFile.cpp"
 	"crazygaze/core/IniFile.h"
@@ -33,6 +34,7 @@ set(ALL_FILES
 	"crazygaze/core/Singleton.h"
 	"crazygaze/core/StringUtils.cpp"
 	"crazygaze/core/StringUtils.h"
+	"crazygaze/core/TaggedPtr.h"
 	"crazygaze/core/ThreadingUtils.h"
 	"crazygaze/core/VSOVector.h"
 )
