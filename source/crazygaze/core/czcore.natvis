@@ -55,6 +55,13 @@
 		{{ size={m_c.count} }}
 	</DisplayString>
 
+    <Expand>
+      <ArrayItems>
+        <Size>m_c.count</Size>
+        <ValuePointer>m_c.ptr</ValuePointer>
+      </ArrayItems>
+    </Expand>
+
   </Type>
 
   <Type Name="cz::FixedHeapArray&lt;*,1&gt;">
@@ -62,6 +69,13 @@
     <DisplayString>
 		{{ size={m_c.c.m_bits.tag} }}
     </DisplayString>
+
+    <Expand>
+      <ArrayItems>
+        <Size>m_c.c.m_bits.tag</Size>
+        <ValuePointer>($T1*)(((m_c.c.m_bits.ptr ^ m_c.c.x64SignBit) - m_c.c.x64SignBit) &lt;&lt; m_c.c.LowTagBits)</ValuePointer>
+      </ArrayItems>
+    </Expand>
 
   </Type>
 
