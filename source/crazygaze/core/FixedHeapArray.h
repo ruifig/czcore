@@ -107,6 +107,7 @@ class FixedHeapArray
 
 	// This allows the user code to query what's the maximum size when using tagged pointers
 	static constexpr size_t max_size = UseTaggedPointer ? TaggedPtr<T>::MaxTagValue : std::numeric_limits<size_t>::max();
+	static constexpr bool using_tagged_pointer = UseTaggedPointer;
 
 	// malloc guarantees an alignment suitable for max_align_t (see https://en.cppreference.com/w/c/types/max_align_t.html)
 	// This class uses malloc/free, therefore we can't support alignments higher than max_align_t's alignment
