@@ -17,7 +17,9 @@ namespace details
 	template <typename T>
 	struct FixedHeapArrayStorage<T, true>
 	{
-		TaggedPtr<T> c;
+		using TaggedPtrType = TaggedPtr<T, alignof(max_align_t)>;
+		static constexpr size_t max_size = TaggedPtrType::MaxTagValue;
+		TaggedPtrType c;
 
 		FixedHeapArrayStorage() = default;
 		FixedHeapArrayStorage(T* ptr, size_t count)
@@ -45,6 +47,7 @@ namespace details
 	template <typename T>
 	struct FixedHeapArrayStorage<T, false>
 	{
+		static constexpr size_t max_size = std::numeric_limits<size_t>::max();
 		T* ptr = nullptr;
 		size_t count = 0;
 
@@ -104,11 +107,12 @@ class FixedHeapArray
 	using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
 	// This allows the user code to query what's the maximum size when using tagged pointers
-	static constexpr size_t max_size = UseTaggedPointer ? TaggedPtr<T>::MaxTagValue : std::numeric_limits<size_t>::max();
+	static constexpr size_t max_size = details::FixedHeapArrayStorage<T, UseTaggedPointer>::max_size;
 	static constexpr bool using_tagged_pointer = UseTaggedPointer;
 
 	// malloc guarantees an alignment suitable for max_align_t (see https://en.cppreference.com/w/c/types/max_align_t.html)
 	// This class uses malloc/free, therefore we can't support alignments higher than max_align_t's alignment
+	// It wouldn't be a big deal to supoort higher alignments, but I don't see the need for now.
 	static_assert(alignof(T) <= alignof(max_align_t), "No alignment higher than max_align_t's alignment supported");
 
   private:
