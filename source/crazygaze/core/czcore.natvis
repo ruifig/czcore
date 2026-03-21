@@ -48,5 +48,23 @@
 	</Expand>
 
   </Type>
+
+  <Type Name="cz::FixedHeapArray&lt;*,0&gt;">
+
+    <DisplayString>
+		{{ size={m_c.count} }}
+	</DisplayString>
+
+  </Type>
+
+  <Type Name="cz::FixedHeapArray&lt;*,1&gt;">
+
+    <DisplayString>
+		{{ size={m_c.c.m_bits.tag} }}
+    </DisplayString>
+
+  </Type>
+
+
 </AutoVisualizer>
 
