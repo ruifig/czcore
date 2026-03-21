@@ -28,7 +28,7 @@
   <Type Name="cz::TaggedPtr&lt;*&gt;">
 
     <DisplayString Condition="m_bits.ptr == 0">
-      ptr=null, tag={m_bits.tag}, raw=0x{m_raw,x}, sign=0x{x64SignBit,x}
+      ptr=null, tag={m_bits.tag}, raw=0x{m_raw,x}
     </DisplayString>
 
     <DisplayString Condition="m_bits.ptr != 0">

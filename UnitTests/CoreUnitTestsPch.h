@@ -5,8 +5,8 @@
 #include "crazygaze/core/SharedPtr.h"
 #include "crazygaze/core/FNVHash.h"
 #include "crazygaze/core/VSOVector.h"
-#include "crazygaze/core/FixedHeapArray.h"
 #include "crazygaze/core/TaggedPtr.h"
+#include "crazygaze/core/FixedHeapArray.h"
 
 #include <future>
 #include <chrono>
