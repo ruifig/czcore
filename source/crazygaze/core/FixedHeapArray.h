@@ -82,12 +82,10 @@ namespace details
  *
  * - The size is set at construction time
  * - No methods to insert/remove elements, since the size is fixed.
- * - For scenarios where 
- * - If using pointer tagging, then sizeof(*this) is only 8 bytes, at the expense of having a limited maximum size.
+ * - If using pointer tagging, then sizeof(*this) is only 8 bytes at the expense of having a limited maximum size.
  *		- The maximum size can be queried with the ::max_size constexpr variable, or the maxSize() method.
- *
- * WARNING: When setting UseTaggedPointer to true, check if max_size is large enough for your needs.
- * 
+ *		- Pointer tagging should only be used when you KNOW that ::max_size is big enough for your needs. E.g, it might
+ *		  be large enough for a game's 3D meshes.
  */
 template <typename T, bool UseTaggedPointer>
 class FixedHeapArray

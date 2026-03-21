@@ -16,17 +16,17 @@ namespace cz
  * It allows packing user data into a pointer's unused bits.
  *
  */
-template<typename T>
+template<typename T, uint32_t minAlign = 1>
 class TaggedPtr
 {
 	static_assert(sizeof(void*) == 8, "TaggedPtr only supports 64 bits platforms");
 
-	static constexpr int calcLowTagBits()
+	static consteval int calcLowTagBits()
 	{
 		if constexpr (std::is_same_v<void, T>)
-			return 0;
+			return std::countr_zero(static_cast<uint64_t>(std::max(1u, minAlign)));
 		else
-			return std::countr_zero(static_cast<uint64_t>(alignof(T)));
+			return std::countr_zero(std::max(static_cast<uint32_t>(alignof(T)), minAlign));
 	}
 
   public:

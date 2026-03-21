@@ -4,7 +4,7 @@ using namespace cz;
 
 namespace
 {
-	
+
 template<typename T>
 void testTaggedPtr()
 {
@@ -40,12 +40,48 @@ TEST_CASE("TaggedPtr", "[TaggedPtr]")
 	TaggedPtr<std::string> emptyPtr;
 	emptyPtr.setTag(10);
 
-	// Test deferencing the pointer
+	// Test dereferencing the pointer
 	std::string str = "Hello World";
 	TaggedPtr<std::string> ptr(&str);
 	ptr.setTag(12345);
 	CHECK(*ptr == "Hello World");
 	CHECK(std::string(ptr->c_str()) == "Hello World");
 }
+
+TEST_CASE("TaggedPtr minAlign", "[TaggedPtr]")
+{
+
+	{
+		TaggedPtr<uint8_t> c;
+		CHECK(c.TotalTagBits == 16);
+	}
+	{
+		TaggedPtr<uint8_t, 1> c;
+		CHECK(c.TotalTagBits == 16);
+	}
+	{
+		TaggedPtr<uint8_t, 2> c;
+		CHECK(c.TotalTagBits == 17);
+	}
+
+	{
+		TaggedPtr<uint16_t, 0> c;
+		CHECK(c.TotalTagBits == 17);
+	}
+	{
+		TaggedPtr<uint16_t, 1> c;
+		CHECK(c.TotalTagBits == 17);
+	}
+	{
+		TaggedPtr<uint16_t, 2> c;
+		CHECK(c.TotalTagBits == 17);
+	}
+	{
+		TaggedPtr<uint16_t, 4> c;
+		CHECK(c.TotalTagBits == 18);
+	}
+
+}
+
 
 
