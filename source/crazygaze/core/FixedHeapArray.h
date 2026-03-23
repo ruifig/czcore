@@ -312,6 +312,16 @@ class FixedHeapArray
 		return size() == 0;
 	}
 
+	void resize(size_t count)
+	{
+		*this = FixedHeapArray(count);
+	}
+
+	void resize(size_t count, const T& value)
+	{
+		*this = FixedHeapArray(count, value);
+	}
+
 	friend void swap(FixedHeapArray& a, FixedHeapArray& b) noexcept
 	{
 		std::swap(a.m_c, b.m_c);
