@@ -8,6 +8,39 @@ namespace cz
 namespace details
 {
 
+	/**
+	 * What holds a handle's data.
+	 * 
+	 */
+	template<typename BitsType>
+	union HandleMeta;
+
+	template<>
+	union HandleMeta<uint64_t>
+	{
+		struct
+		{
+			uint32_t idx;
+			uint32_t counter; 
+		} bits;
+		uint64_t all = 0;
+	};
+
+	template<>
+	union HandleMeta<uint32_t>
+	{
+		struct
+		{
+			uint16_t idx;
+			uint16_t counter; 
+		} bits;
+		uint32_t all = 0;
+	};
+
+	static_assert(sizeof(HandleMeta<uint64_t>) == sizeof(uint64_t));
+	static_assert(sizeof(HandleMeta<uint32_t>) == sizeof(uint32_t));
+
+
 	template <typename T>
 	struct HandleEntry
 	{
@@ -172,25 +205,15 @@ namespace details
 		static inline DoublyLinkedList<BaseHandleStorage> ms_all;
 	};
 
-	union HandleMeta
-	{
-		struct
-		{
-			uint32_t idx;
-			uint32_t counter; 
-		} bits;
-		uint64_t all = 0;
-	};
-
-	static_assert(sizeof(HandleMeta) == sizeof(uint64_t));
-
 	/**
 	 * Storage for handles of type T
 	 */
-	template<typename T>
+	template<typename T, typename HT>
 	class HandleStorage : public BaseHandleStorage
 	{
 	  public:
+
+		using HMeta = HandleMeta<HT>;
 		HandleStorage()
 		{
 			reset();
@@ -209,23 +232,23 @@ namespace details
 		}
 
 		template<typename... Args>
-		uint64_t create(Args&&... args)
+		HT create(Args&&... args)
 		{
 			HandleEntry<T>* e;
-			HandleMeta hmeta;
-			hmeta.bits.counter = ++counter;
+			HMeta hmeta;
+			hmeta.bits.counter = static_cast<decltype(hmeta.bits.counter)>(++counter);
 
 			if (nextFree == invalidIndex)
 			{
-				hmeta.bits.idx = static_cast<uint32_t>(data.size());
+				hmeta.bits.idx = static_cast<decltype(hmeta.bits.idx)>(data.size());
 				e = &data.emplace_back(T(std::forward<Args>(args)...));
 			}
 			else
 			{
-				hmeta.bits.idx = nextFree;
+				hmeta.bits.idx = static_cast<decltype(hmeta.bits.idx)>(nextFree);
 				e = &data[nextFree];
 				CZ_CHECK(e->meta.bits.free == 1);
-				nextFree = e->meta.bits.extra;
+				nextFree = static_cast<decltype(nextFree)>(e->meta.bits.extra);
 				*e = HandleEntry<T>(T(std::forward<Args>(args)...));
 			}
 
@@ -234,7 +257,7 @@ namespace details
 			 return hmeta.all;
 		}
 
-		void destroy(HandleMeta meta)
+		void destroy(HMeta meta)
 		{
 			CZ_CHECK(meta.all && (meta.bits.idx < data.size()));
 
@@ -253,17 +276,17 @@ namespace details
 
 } // namespace details
 
-template<typename T>
+template<typename T, typename DataType>
 struct Handle
 {
-	static inline details::HandleStorage<T> storage;
+	static inline details::HandleStorage<T, DataType> storage;
 
-	details::HandleMeta meta;
+	details::HandleMeta<DataType> meta;
 
 	template<typename... Args>
-	static Handle<T> create(Args&&... args)
+	static Handle<T, DataType> create(Args&&... args)
 	{
-		Handle<T> res;
+		Handle<T, DataType> res;
 		res.meta.all = storage.create(std::forward<Args>(args)...);
 		return res;
 	}
