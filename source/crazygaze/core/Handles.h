@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Common.h"
+#include "LinkedList.h"
 
 /**
  * @file Handle.h
