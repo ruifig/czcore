@@ -3,20 +3,19 @@
 
 using namespace cz;
 
-struct Foo
+struct HandleFoo
 {
 	int id = ms_idCounter++;
-	Foo& operator=(Foo&) = default;
-	Foo& operator=(const Foo&) = default;
+	HandleFoo& operator=(HandleFoo&) = default;
+	HandleFoo& operator=(const HandleFoo&) = default;
 
-	Foo() = default;
-
-	Foo(std::string_view extra)
+	HandleFoo() = default;
+	HandleFoo(std::string_view extra)
 	{
 		str += extra;
 	}
 
-	~Foo()
+	~HandleFoo()
 	{
 		id = -1;
 	}
@@ -24,19 +23,22 @@ struct Foo
 	static inline int ms_idCounter = 0;
 };
 
-
-TEST_CASE("Handles", "[Handles]")
+TEMPLATE_TEST_CASE("Handles", "[Handles]", uint32_t, uint64_t)
 {
-	Handle<Foo> h0;
-	Handle<Foo> h1;
-	Handle<Foo> h2;
-	Handle<Foo> h3;
+	using HT = Handle<HandleFoo, TestType>;
+	static_assert(sizeof(HT) == sizeof(TestType));
+	HandleFoo::ms_idCounter = 0;
+
+	HT h0;
+	HT h1;
+	HT h2;
+	HT h3;
 	CHECK(h0.isValid() == false);
 
-	h0 = Handle<Foo>::create("Handle 0");
-	h1 = Handle<Foo>::create("Handle 1");
-	h2 = Handle<Foo>::create("Handle 2");
-	h3 = Handle<Foo>::create("Handle 3");
+	h0 = HT::create("Handle 0");
+	h1 = HT::create("Handle 1");
+	h2 = HT::create("Handle 2");
+	h3 = HT::create("Handle 3");
 
 	CHECK(h0.isValid());
 	CHECK(h1.isValid());
@@ -52,22 +54,39 @@ TEST_CASE("Handles", "[Handles]")
 	CHECK(h0.isValid());
 	CHECK(h2.isValid());
 
+	// Test iterator
+	{
+		std::vector<int> expectedIds = {0,2};
+
+		// non-const
+		size_t idx = 0;
+		for(HandleFoo& f : HT::storage)
+		{
+			CHECK(f.id == expectedIds[idx]);
+			idx++;
+		}
+
+		// const
+		idx = 0;
+		for(const HandleFoo& f : (const decltype(HT::storage)&)HT::storage)
+		{
+			CHECK(f.id == expectedIds[idx]);
+			idx++;
+		}
+	}
 
 	// Due to the way the handles are implemented, we know what index new handles should end up...
-	h1 = Handle<Foo>::create("New Handle 1");
-	h3 = Handle<Foo>::create("New Handle 3");
+	h1 = HT::create("New Handle 1");
+	h3 = HT::create("New Handle 3");
 	CHECK(h0.isValid());
 	CHECK(h1.isValid());
 	CHECK(h2.isValid());
 	CHECK(h3.isValid());
 
 	// Now insert a fresh one into a non-existing slot, to see if freeNext works propertly
-	Handle<Foo> h4 = Handle<Foo>::create("Handle 4");
+	HT h4 = HT::create("Handle 4");
 	CHECK(h4.isValid());
-
-	//Handle<Foo>::storage.reset();
-	printf("");
-
-
-
 }
+
+
+

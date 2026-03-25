@@ -2,6 +2,137 @@
 
 #include "Common.h"
 
+/**
+ * @file Handle.h
+ * @brief Generational handle storage for stable, type-safe object references.
+ *
+ * This header implements an opaque handle system backed by a per-type storage.
+ * A handle is a small value object that refers to an entry inside a central
+ * storage array, rather than owning the object directly.
+ *
+ * ## Overview
+ *
+ * `Handle<T, DataType>` provides a lightweight reference to an object of type `T`
+ * stored in a static `HandleStorage<T, DataType>`.
+ *
+ * Each handle value is composed of:
+ * - an **index** into the storage array
+ * - a **generation counter** used to detect stale handles
+ *
+ * When an object is destroyed, its slot is returned to a free list and may later
+ * be reused. The generation counter changes on each allocation, so an old handle
+ * to a reused slot will no longer validate successfully.
+ *
+ * This is commonly used when you want:
+ * - cheap copyable IDs
+ * - validation against use-after-free
+ * - object lookup without exposing raw ownership
+ * - a compact alternative to pointers for gameplay/runtime systems
+ *
+ * ## Main properties
+ *
+ * - **Typed handles**  
+ *   A `Handle<Foo, uint32_t>` cannot be used as a handle to another type.
+ *
+ * - **Stale handle detection**  
+ *   Reused storage slots are protected by a generation counter.
+ *
+ * - **O(1) create / destroy / lookup**  
+ *   Allocation uses either append or a recycled free slot.
+ *
+ * - **Static per-type storage**  
+ *   Each `Handle<T, DataType>` specialization owns one shared storage instance
+ *   for all handles of that exact type/signature.
+ *
+ * - **Iterable live objects**  
+ *   The storage can be iterated, skipping free slots automatically.
+ *
+ * ## Handle layout
+ *
+ * The underlying integer type (`DataType`) determines the handle size:
+ *
+ * - `uint32_t`  -> 16-bit index + 16-bit generation counter
+ * - `uint64_t`  -> 32-bit index + 32-bit generation counter
+ *
+ * This lets you choose between smaller handles and larger capacity.
+ *
+ * ## Lifetime model
+ *
+ * A `Handle` is **not** an owning smart pointer.
+ *
+ * Destroying a handle object does **not** destroy the underlying `T`.
+ * The user must explicitly call `release()` to free the referenced object.
+ *
+ * After `release()`:
+ * - the handle becomes invalid
+ * - any other copies of the same handle become stale
+ * - future lookups through those stale handles will fail validation
+ *
+ * ## Validity rules
+ *
+ * A handle is valid only if:
+ * - its stored index is inside the current storage bounds, and
+ * - the generation counter matches the entry currently occupying that slot
+ *
+ * `tryGetObj()` returns `nullptr` if validation fails.
+ * `getObj()` and `operator->()` assert on invalid access.
+ *
+ * ## Important caveats
+ *
+ * - **Not thread-safe**  
+ *   Creation, destruction, and lookup are unsynchronized.
+ *
+ * - **Pointers/references are not stable across storage mutation**  
+ *   Objects are stored inside a `std::vector`. Any pointer or reference obtained
+ *   from a handle may be invalidated by later storage growth, destruction, reset,
+ *   or slot reuse. Keep handles, not raw pointers, when long-lived access is needed.
+ *
+ * - **Manual release required**  
+ *   This system separates object lifetime from handle object lifetime on purpose.
+ *   That is powerful, but also a nice little trap if you forget to call `release()`.
+ *
+ * - **Counter wraparound is possible**  
+ *   The generation counter is finite. In extremely long-running or high-churn
+ *   scenarios, it can wrap. Pick a sufficiently large `DataType` if this matters.
+ *
+ * ## Intended usage
+ *
+ * Typical uses include:
+ * - entity/object registries
+ * - gameplay object references
+ * - resource tables
+ * - systems that need validation without raw pointer ownership
+ *
+ * Example:
+ * @code
+ * using ProjectileHandle = cz::Handle<Projectile, uint32_t>;
+ *
+ * ProjectileHandle h = ProjectileHandle::create(...);
+ *
+ * if (Projectile* p = h.tryGetObj())
+ * {
+ *     p->update();
+ * }
+ *
+ * h.release();
+ * @endcode
+ *
+ * ## Related internal types
+ *
+ * - `details::HandleMeta`  
+ *   Packs/unpacks the index and generation counter into the underlying integer.
+ *
+ * - `details::HandleEntry<T>`  
+ *   Stores either a live `T` or free-list metadata for a vacant slot.
+ *
+ * - `details::HandleStorage<T, DataType>`  
+ *   Owns the storage array, free list, allocation logic, destruction logic,
+ *   and iteration over live entries.
+ *
+ * - `details::BaseHandleStorage`  
+ *   Base class used to register all storages globally for bulk reset.
+ */
+
 namespace cz
 {
 
@@ -269,9 +400,140 @@ namespace details
 			nextFree = meta.bits.idx;
 		}
 
+		class Iterator
+		{
+		  public:
+			using iterator_category = std::forward_iterator_tag;
+			using value_type = T;
+			using difference_type = std::ptrdiff_t;
+			using pointer = T*;
+			using reference = T&;
+
+			Iterator(HandleStorage* storage, size_t index)
+				: m_storage(storage)
+				, m_index(index)
+			{
+				skipFree();
+			}
+
+			reference operator*() const
+			{
+				return m_storage->data[m_index].getValue();
+			}
+
+			pointer operator->() const
+			{
+				return &m_storage->data[m_index].getValue();
+			}
+
+			Iterator& operator++()
+			{
+				++m_index;
+				skipFree();
+				return *this;
+			}
+
+			Iterator operator++(int)
+			{
+				Iterator tmp = *this;
+				++(*this);
+				return tmp;
+			}
+
+			bool operator==(const Iterator& other) const
+			{
+				return m_storage == other.m_storage && m_index == other.m_index;
+			}
+
+			bool operator!=(const Iterator& other) const
+			{
+				return !(*this == other);
+			}
+
+		  private:
+			void skipFree()
+			{
+				while (m_index < m_storage->data.size() && m_storage->data[m_index].meta.bits.free)
+					++m_index;
+			}
+
+			HandleStorage* m_storage = nullptr;
+			size_t m_index = 0;
+		};
+
+		class ConstIterator
+		{
+		  public:
+			using iterator_category = std::forward_iterator_tag;
+			using value_type = const T;
+			using difference_type = std::ptrdiff_t;
+			using pointer = const T*;
+			using reference = const T&;
+
+			ConstIterator(const HandleStorage* storage, size_t index)
+				: m_storage(storage)
+				, m_index(index)
+			{
+				skipFree();
+			}
+
+			reference operator*() const
+			{
+				return m_storage->data[m_index].getValue();
+			}
+
+			pointer operator->() const
+			{
+				return &m_storage->data[m_index].getValue();
+			}
+
+			ConstIterator& operator++()
+			{
+				++m_index;
+				skipFree();
+				return *this;
+			}
+
+			ConstIterator operator++(int)
+			{
+				ConstIterator tmp = *this;
+				++(*this);
+				return tmp;
+			}
+
+			bool operator==(const ConstIterator& other) const
+			{
+				return m_storage == other.m_storage && m_index == other.m_index;
+			}
+
+			bool operator!=(const ConstIterator& other) const
+			{
+				return !(*this == other);
+			}
+
+		  private:
+			void skipFree()
+			{
+				while (m_index < m_storage->data.size() && m_storage->data[m_index].meta.bits.free)
+					++m_index;
+			}
+
+			const HandleStorage* m_storage = nullptr;
+			size_t m_index = 0;
+		};
+
+		Iterator begin() { return Iterator(this, 0); }
+		Iterator end() { return Iterator(this, data.size()); }
+		ConstIterator begin() const { return ConstIterator(this, 0); }
+		ConstIterator end() const { return ConstIterator(this, data.size()); }
+		ConstIterator cbegin() const { return ConstIterator(this, 0); }
+		ConstIterator cend() const { return ConstIterator(this, data.size()); }
+
+
 		std::vector<HandleEntry<T>> data;
 		uint32_t nextFree;
 		uint32_t counter;
+
 	};
 
 } // namespace details
