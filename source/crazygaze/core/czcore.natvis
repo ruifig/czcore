@@ -80,5 +80,29 @@
   </Type>
 
 
+  <Type Name="cz::details::HandleEntry&lt;*&gt;">
+    <DisplayString Condition="meta.bits.free == 0">{*($T1*)(buf)}</DisplayString>
+    <DisplayString Condition="meta.bits.free == 1">empty</DisplayString>
+
+	<Expand>
+		<Item Name="meta">meta</Item>
+		<Item Name="value" Condition="meta.bits.free == 0">*($T1*)(buf)</Item>
+	</Expand>
+  </Type>
+
+  <Type Name="cz::Handle&lt;*&gt;">
+    <Intrinsic Name="storage_size" Expression="(size_t)(storage.data._Mypair._Myval2._Mylast - storage.data._Mypair._Myval2._Myfirst)" />
+    <Intrinsic Name="is_valid" Expression="(bool)(meta.all &amp;&amp; meta.bits.idx &lt; storage_size())" />
+    <Intrinsic Name="entry" Expression="storage.data._Mypair._Myval2._Myfirst[meta.bits.idx]" />
+    <Intrinsic Name="value" Expression="*($T1*)(storage.data._Mypair._Myval2._Myfirst[meta.bits.idx].buf)" />
+
+    <DisplayString Condition="meta.all == 0">Empty</DisplayString>
+    <DisplayString Condition="is_valid()">{entry()}</DisplayString>
+    <DisplayString Condition="!is_valid()">Invalid</DisplayString>
+    <Expand>
+		<Item Name="Object" Condition="is_valid()">value()</Item>
+    </Expand>
+  </Type>
+
 </AutoVisualizer>
 
