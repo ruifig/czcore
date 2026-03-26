@@ -67,7 +67,7 @@
 	__pragma(warning(disable: 5039)) /* "function': pointer or reference to potentially throwing function passed to extern C function under -EHc. Undefined behavior may occur if this function throws an exception. */
 	__pragma(warning(disable: 4548)) /* "expression before comma has no effect; expected expression with side-effect */
 	__pragma(warning(disable: 4996)) /* 'function': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details. */
-
+	__pragma(warning(disable: 5311)) /* A literal-operator-id of the form 'operator string-literal identifier' has been deprecated */
 #else
 
 #endif
