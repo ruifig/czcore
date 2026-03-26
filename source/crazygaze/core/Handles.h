@@ -548,8 +548,9 @@ namespace details
 } // namespace details
 
 template<typename T, typename DataType>
-struct HandleImpl
+class HandleImpl
 {
+  public:
 	static inline details::HandleStorage<T, DataType> storage;
 
 	details::HandleMeta<DataType> meta;
@@ -557,9 +558,7 @@ struct HandleImpl
 	template<typename... Args>
 	static HandleImpl<T, DataType> create(Args&&... args)
 	{
-		HandleImpl<T, DataType> res;
-		res.meta.all = storage.create(std::forward<Args>(args)...);
-		return res;
+		return createImpl<HandleImpl<T, DataType>>::createImpl(std::forward<Args>(args)...);
 	}
 
 	bool isValid() const
@@ -607,6 +606,19 @@ struct HandleImpl
 	}
 
   protected:
+
+	/**
+	 * Putting this as a separate function templated on HandleType, so that user code can reuse this if they
+	 * want to have their own Handle class inherit from HandleImpl
+	 */
+	template<typename HandleType, typename... Args>
+	static HandleType createImpl(Args&&... args)
+	{
+		HandleType res;
+		res.meta.all = storage.create(std::forward<Args>(args)...);
+		return res;
+	}
+
 
 	T& getObjImpl() const
 	{
