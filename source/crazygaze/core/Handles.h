@@ -219,7 +219,7 @@ namespace details
 				std::destroy_at(getPtr());
 		}
 
-		HandleEntry(const HandleEntry& other)
+		HandleEntry(const HandleEntry& other) requires std::is_copy_constructible_v<T>
 		{
 			copyFrom(other);
 		}
@@ -229,7 +229,7 @@ namespace details
 			moveFrom(std::move(other));
 		}
 
-		HandleEntry& operator=(const HandleEntry& other)
+		HandleEntry& operator=(const HandleEntry& other) requires std::is_copy_constructible_v<T>
 		{
 			if (this != &other)
 				copyFrom(other);
@@ -243,7 +243,7 @@ namespace details
 			return *this;
 		}
 
-		uint8_t alignas(alignof(T)) buf[sizeof(T)] = "empty...";
+		uint8_t alignas(alignof(T)) buf[sizeof(T)];
 
 		T& getValue()
 		{
@@ -265,7 +265,7 @@ namespace details
 			return reinterpret_cast<T*>(buf);
 		}
 
-		void copyFrom(const HandleEntry& other)
+		void copyFrom(const HandleEntry& other) requires std::is_copy_constructible_v<T>
 		{
 			if (!meta.bits.free)
 			{
@@ -602,7 +602,7 @@ struct Handle
 
 	T& getObjImpl() const
 	{
-		const T* p = tryGetObj();
+		T* p = tryGetObjImpl();
 		CZ_CHECK(p);
 		return *p;
 	}

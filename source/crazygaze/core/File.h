@@ -227,7 +227,7 @@ bool saveTextFile(const fs::path& path, std::string_view contents, bool saveOnly
   * This is useful for when you want to create some log file but wants to keep the old file.
   * The end result, is that for example, all log files are kept.
   */
- bool renameFileToTimestamp(const std::filesystem::path& filename);
+ bool renameFileToTimestamp(const fs::path& filename);
 
 } // namespace cz
 

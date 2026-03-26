@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include "PlatformUtils.h"
 
 namespace cz
 {
@@ -507,7 +508,7 @@ inline bool fromString(std::string_view str, std::string& dst)
 	return true;
 }
 
-inline bool fromString(std::string_view str, std::filesystem::path& dst)
+inline bool fromString(std::string_view str, fs::path& dst)
 {
 	dst = str;
 	return true;
@@ -558,14 +559,14 @@ int levenshtein_distance(std::string_view s1, std::string_view s2);
 
 
 /*!
- * Formatter for std::filesystem::path , so it can be used with the std::format functions.
+ * Formatter for fs::path , so it can be used with the std::format functions.
  * At the time of writing, no compiler implements this yet.
  * See https://en.cppreference.com/w/cpp/filesystem/path/formatter
  */
 template<>
-struct std::formatter<std::filesystem::path> : std::formatter<string_view>
+struct std::formatter<cz::fs::path> : std::formatter<string_view>
 {
-	auto format(const std::filesystem::path& p, std::format_context& ctx) const
+	auto format(const cz::fs::path& p, std::format_context& ctx) const
 	{
 		return std::formatter<std::string_view>::format(cz::narrow(p.native()), ctx);
 	}

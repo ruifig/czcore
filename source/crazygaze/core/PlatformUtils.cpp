@@ -102,7 +102,7 @@ fs::path getProcessExe()
 		if (res > 0 && res < size)
 		{
 			auto buf = convertDevicePathToWin32Path(buffer.get());
-			return std::filesystem::path(buf.c_str());
+			return fs::path(buf.c_str());
 		}
 
 		if (res != size) // Call failed

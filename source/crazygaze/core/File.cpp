@@ -219,10 +219,10 @@ namespace
  *
  * It returns an empty string if the file doesn't exist or there was an error.
  */
-std::string getFileTimestamp(const std::filesystem::path& filename)
+std::string getFileTimestamp(const fs::path& filename)
 {
 	std::error_code ec;
-	if (!std::filesystem::exists(filename, ec))
+	if (!fs::exists(filename, ec))
 	{
 		return "";
 	}
@@ -272,21 +272,21 @@ std::string getFileTimestamp(const std::filesystem::path& filename)
 
 }
 
-bool renameFileToTimestamp(const std::filesystem::path& filename)
+bool renameFileToTimestamp(const fs::path& filename)
 {
 	std::error_code ec;
-	if (!std::filesystem::exists(filename, ec))
+	if (!fs::exists(filename, ec))
 	{
 		return true;
 	}
 
 	std::string timestamp = getFileTimestamp(filename);
-	std::filesystem::path dir = filename.parent_path();
-	std::filesystem::path baseName = filename.stem();
-	std::filesystem::path extension = filename.extension();
+	fs::path dir = filename.parent_path();
+	fs::path baseName = filename.stem();
+	fs::path extension = filename.extension();
 
-	std::filesystem::path newFilename = dir / std::format("{}-{}{}", baseName.string(), timestamp, extension.string());
-	std::filesystem::rename(filename, newFilename, ec);
+	fs::path newFilename = dir / std::format("{}-{}{}", baseName.string(), timestamp, extension.string());
+	fs::rename(filename, newFilename, ec);
 	if (ec)
 	{
 		CZ_LOG(Main, Error, "Error renaming '{}' to '{}'. Error={}", filename.string(), newFilename.string(), ec.message());
