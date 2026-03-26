@@ -13,8 +13,16 @@
  *
  * ## Overview
  *
- * `Handle<T, DataType>` provides a lightweight reference to an object of type `T`
+ * `HandleImpl<T, DataType>` provides a lightweight reference to an object of type `T`
  * stored in a static `HandleStorage<T, DataType>`.
+ *
+ * It is named `HandleImpl` instead of `Handle`, since user code will probably want to typedef it use a specific data type, and so that avoid confusion with the name.
+ * E.g:
+ * ````
+ *		// My application handles use uint32_t
+ *		template<typename T>
+ *		using Handle = cz::HandleImpl<T, uint32_t>;
+ * ```
  *
  * Each handle value is composed of:
  * - an **index** into the storage array
@@ -33,7 +41,7 @@
  * ## Main properties
  *
  * - **Typed handles**  
- *   A `Handle<Foo, uint32_t>` cannot be used as a handle to another type.
+ *   A `HandleImpl<Foo, uint32_t>` cannot be used as a handle to another type.
  *
  * - **Stale handle detection**  
  *   Reused storage slots are protected by a generation counter.
@@ -42,7 +50,7 @@
  *   Allocation uses either append or a recycled free slot.
  *
  * - **Static per-type storage**  
- *   Each `Handle<T, DataType>` specialization owns one shared storage instance
+ *   Each `HandleImpl<T, DataType>` specialization owns one shared storage instance
  *   for all handles of that exact type/signature.
  *
  * - **Iterable live objects**  
@@ -106,7 +114,7 @@
  *
  * Example:
  * @code
- * using ProjectileHandle = cz::Handle<Projectile, uint32_t>;
+ * using ProjectileHandle = cz::HandleImpl<Projectile, uint32_t>;
  *
  * ProjectileHandle h = ProjectileHandle::create(...);
  *
@@ -540,16 +548,16 @@ namespace details
 } // namespace details
 
 template<typename T, typename DataType>
-struct Handle
+struct HandleImpl
 {
 	static inline details::HandleStorage<T, DataType> storage;
 
 	details::HandleMeta<DataType> meta;
 
 	template<typename... Args>
-	static Handle<T, DataType> create(Args&&... args)
+	static HandleImpl<T, DataType> create(Args&&... args)
 	{
-		Handle<T, DataType> res;
+		HandleImpl<T, DataType> res;
 		res.meta.all = storage.create(std::forward<Args>(args)...);
 		return res;
 	}

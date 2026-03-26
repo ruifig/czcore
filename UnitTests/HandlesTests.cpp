@@ -25,7 +25,7 @@ struct HandleFoo
 
 TEMPLATE_TEST_CASE("Handles", "[Handles]", uint32_t, uint64_t)
 {
-	using HT = Handle<HandleFoo, TestType>;
+	using HT = HandleImpl<HandleFoo, TestType>;
 	static_assert(sizeof(HT) == sizeof(TestType));
 	HandleFoo::ms_idCounter = 0;
 
