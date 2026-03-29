@@ -1,47 +1,52 @@
 
-set(MODULE_FILES
+set(MODULE_INTERFACES
 	"crazygaze/core/Algorithm.ixx"
-	"crazygaze/core/AsyncCommandQueue.cpp"
 	"crazygaze/core/AsyncCommandQueue.ixx"
-	"crazygaze/core/CommandLine.cpp"
 	"crazygaze/core/CommandLine.ixx"
 	"crazygaze/core/Common.ixx"
 	"crazygaze/core/czcore.ixx"
-	"crazygaze/core/File.cpp"
 	"crazygaze/core/File.ixx"
 	"crazygaze/core/FixedHeapArray.ixx"
 	"crazygaze/core/FNVHash.ixx"
 	"crazygaze/core/Handles.ixx"
-	"crazygaze/core/IniFile.cpp"
 	"crazygaze/core/IniFile.ixx"
 	"crazygaze/core/LinkedList.ixx"
-	"crazygaze/core/Logging.cpp"
 	"crazygaze/core/Logging.ixx"
-	"crazygaze/core/LogOutputs.cpp"
 	"crazygaze/core/LogOutputs.ixx"
-	"crazygaze/core/Math.cpp"
 	"crazygaze/core/Math.ixx"
-	"crazygaze/core/Misc.cpp"
 	"crazygaze/core/Misc.ixx"
-	"crazygaze/core/PlatformUtils.cpp"
 	"crazygaze/core/PlatformUtils.ixx"
 	"crazygaze/core/PolyChunkVector.ixx"
 	"crazygaze/core/ScopeGuard.ixx"
 	"crazygaze/core/SharedPtr.ixx"
 	"crazygaze/core/SharedQueue.ixx"
 	"crazygaze/core/Singleton.ixx"
-	"crazygaze/core/StringUtils.cpp"
 	"crazygaze/core/StringUtils.ixx"
 	"crazygaze/core/TaggedPtr.ixx"
-	"crazygaze/core/Threading.cpp"
 	"crazygaze/core/Threading.ixx"
 	"crazygaze/core/VSOVector.ixx"
 )
 
+set(MODULE_IMPLEMENTATIONS
+	"crazygaze/core/AsyncCommandQueue.cpp"
+	"crazygaze/core/CommandLine.cpp"
+	"crazygaze/core/File.cpp"
+	"crazygaze/core/IniFile.cpp"
+	"crazygaze/core/Logging.cpp"
+	"crazygaze/core/LogOutputs.cpp"
+	"crazygaze/core/Math.cpp"
+	"crazygaze/core/Misc.cpp"
+	"crazygaze/core/PlatformUtils.cpp"
+	"crazygaze/core/StringUtils.cpp"
+	"crazygaze/core/Threading.cpp"
+)
+
 if(WIN32)
-	list(APPEND MODULE_FILES
-		"crazygaze/core/Windows/Win32Event.cpp"
+	list(APPEND MODULE_INTERFACES
 		"crazygaze/core/Windows/Win32Event.ixx"
+	)
+	list(APPEND MODULE_IMPLEMENTATIONS
+		"crazygaze/core/Windows/Win32Event.cpp"
 	)
 endif()
 
@@ -55,20 +60,18 @@ set(OTHER_FILES
 )
 
 set(ALL_FILES
-	${MODULE_FILES}
+	${MODULE_INTERFACES}
+	${MODULE_IMPLEMENTATIONS}
 	${OTHER_FILES}
 )
 
-
-add_library(czcore STATIC)
-
-target_sources(czcore PUBLIC
-	${OTHER_FILES}
+add_library(czcore STATIC
+	${ALL_FILES}
 )
 
 target_sources(czcore PUBLIC
 	FILE_SET czcoremodules TYPE CXX_MODULES
-	FILES ${MODULE_FILES}
+	FILES ${MODULE_INTERFACES} ${MODULE_IMPLEMENTATIONS} 
 )
 
 target_link_libraries(czcore PUBLIC

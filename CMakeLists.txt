@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 4.0)
+cmake_minimum_required(VERSION 4.3.0)
 
 project(czcore)
 
@@ -26,5 +26,9 @@ if (CZCORE_ENABLE_TESTS)
 	FetchContent_MakeAvailable(Catch2)
 
 	add_subdirectory(./UnitTests)
+endif()
+
+if (${PROJECT_IS_TOP_LEVEL})
+	add_subdirectory(sandbox)
 endif()
 

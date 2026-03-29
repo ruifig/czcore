@@ -1,14 +1,14 @@
 module czcore;
 
+#include "Logging_Macros.h"
+
 import std;
 import :logging;
 import :logoutputs;
 import :stringutils;
 
-#include "Logging_Macros.h"
 
-//CZ_DEFINE_LOG_CATEGORY(Main)
-LogCategoryMain logMain;
+CZ_DEFINE_LOG_CATEGORY(Main)
 
 namespace cz
 {

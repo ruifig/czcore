@@ -168,12 +168,5 @@ export inline std::string_view getCZLOGContext()
 	return "";
 }
 
-//CZ_DECLARE_LOG_CATEGORY(Main, Log, VeryVerbose)
-export class LogCategoryMain : public ::cz::LogCategory<::cz::LogLevel::Log, ::cz::LogLevel::VeryVerbose>
-{
-	public: LogCategoryMain() : LogCategory("Main")
-	{
-	}
-};
-export extern LogCategoryMain logMain;
+CZ_DECLARE_LOG_CATEGORY(Main, Log, VeryVerbose)
 
