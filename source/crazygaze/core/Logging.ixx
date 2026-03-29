@@ -5,7 +5,7 @@ module;
 //////////////////////////////////////////////////////////////////////////
 export module czcore:logging;
 
-export import std;
+import std;
 
 export namespace cz
 {

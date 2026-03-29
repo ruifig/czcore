@@ -5,7 +5,7 @@ module;
 //////////////////////////////////////////////////////////////////////////
 export module czcore:threading;
 
-export import std;
+import std;
 
 export namespace cz
 {

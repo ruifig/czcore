@@ -6,7 +6,7 @@ module;
 
 export module czcore:common;
 
-export import std;
+import std;
 
 export namespace cz
 {

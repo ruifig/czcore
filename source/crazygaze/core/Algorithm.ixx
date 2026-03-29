@@ -5,7 +5,7 @@ module;
 //////////////////////////////////////////////////////////////////////////
 export module czcore:algorithm;
 
-export import std;
+import std;
 
 /*
 * Miscellaneous little utilities similar what can be found int the stl <algorithm> header.

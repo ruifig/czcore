@@ -5,7 +5,7 @@ module;
 //////////////////////////////////////////////////////////////////////////
 export module czcore:stringutils;
 
-export import std;
+import std;
 import :common;
 
 

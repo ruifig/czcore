@@ -5,7 +5,7 @@ module;
 //////////////////////////////////////////////////////////////////////////
 export module czcore;
 
-export import std;
+import std;
 import :sharedptr;
 
 export namespace cz
