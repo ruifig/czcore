@@ -1,4 +1,6 @@
-#include "Semaphore.h"
+module czcore;
+
+import :threading;
 
 namespace cz
 {
@@ -67,4 +69,3 @@ bool ZeroSemaphore::trywait()
 }
 
 } // namespace cz
-

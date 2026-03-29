@@ -1,11 +1,18 @@
+module;
+
+#include "Common_Macros.h"
+
+//////////////////////////////////////////////////////////////////////////
+export module czcore:algorithm;
+
+export import std;
+
 /*
 * Miscellaneous little utilities similar what can be found int the stl <algorithm> header.
 * Some of them simply make the STL versions easier to use entire containers without specifying iterators
 */
 
-#pragma once
-
-namespace cz
+export namespace cz
 {
 	/*
 	Same as std::find, but uses the full container range.

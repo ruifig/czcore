@@ -1,8 +1,13 @@
-#pragma once
+module;
 
-#include "Common.h"
+#include "Common_Macros.h"
 
-namespace cz
+//////////////////////////////////////////////////////////////////////////
+export module czcore:sharedqueue;
+
+export import std;
+
+export namespace cz
 {
 
 //

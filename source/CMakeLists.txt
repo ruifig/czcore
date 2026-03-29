@@ -1,62 +1,61 @@
 
-set(ALL_FILES
-	"crazygaze/core/czcore.natvis"
-	
-	"crazygaze/core/Algorithm.h"
+set(MODULE_FILES
+	"crazygaze/core/Algorithm.ixx"
 	"crazygaze/core/AsyncCommandQueue.cpp"
-	"crazygaze/core/AsyncCommandQueue.h"
-	"crazygaze/core/CommandLine.cpp"
-	"crazygaze/core/CommandLine.h"
-	"crazygaze/core/Common.h"
-	"crazygaze/core/CorePch.h"
-	"crazygaze/core/CorePreSetup.h"
-	"crazygaze/core/File.cpp"
-	"crazygaze/core/File.h"
-	"crazygaze/core/FixedHeapArray.h"
-	"crazygaze/core/FNVHash.h"
-	"crazygaze/core/Handles.h"
-	"crazygaze/core/IniFile.cpp"
-	"crazygaze/core/IniFile.h"
-	"crazygaze/core/LinkedList.h"
+	"crazygaze/core/AsyncCommandQueue.ixx"
+	"crazygaze/core/Common.ixx"
+	"crazygaze/core/czcore.ixx"
 	"crazygaze/core/Logging.cpp"
-	"crazygaze/core/Logging.h"
+	"crazygaze/core/Logging.ixx"
 	"crazygaze/core/LogOutputs.cpp"
-	"crazygaze/core/LogOutputs.h"
+	"crazygaze/core/LogOutputs.ixx"
 	"crazygaze/core/Math.cpp"
-	"crazygaze/core/Math.h"
-	"crazygaze/core/Misc.cpp"
-	"crazygaze/core/Misc.h"
-	"crazygaze/core/PlatformUtils.cpp"
-	"crazygaze/core/PlatformUtils.h"
-	"crazygaze/core/PolyChunkVector.h"
-	"crazygaze/core/ScopeGuard.h"
-	"crazygaze/core/Semaphore.cpp"
-	"crazygaze/core/Semaphore.h"
-	"crazygaze/core/SharedPtr.h"
-	"crazygaze/core/SharedQueue.h"
-	"crazygaze/core/Singleton.h"
+	"crazygaze/core/Math.ixx"
+	"crazygaze/core/SharedQueue.ixx"
+	"crazygaze/core/Singleton.ixx"
 	"crazygaze/core/StringUtils.cpp"
-	"crazygaze/core/StringUtils.h"
-	"crazygaze/core/TaggedPtr.h"
-	"crazygaze/core/ThreadingUtils.h"
-	"crazygaze/core/VSOVector.h"
+	"crazygaze/core/StringUtils.ixx"
+	"crazygaze/core/Threading.cpp"
+	"crazygaze/core/Threading.ixx"
 )
 
-if(WIN32)
-	list(APPEND ALL_FILES
-		"crazygaze/core/Windows/Win32Event.cpp"
-		"crazygaze/core/Windows/Win32Event.h"
-	)
+set(OTHER_FILES
+	"crazygaze/core/czcore.natvis"
+	"crazygaze/core/czcorePch.h"
+	"crazygaze/core/Common_Macros.h"
+	"crazygaze/core/Logging_Macros.h"
+)
+
+set(ALL_FILES
+	${MODULE_FILES}
+	${OTHER_FILES}
+)
+
+if (0)
+	if(WIN32)
+		list(APPEND ALL_FILES
+			"crazygaze/core/Windows/Win32Event.cpp"
+			"crazygaze/core/Windows/Win32Event.h"
+		)
+	endif()
 endif()
 
 
-add_library(czcore STATIC ${ALL_FILES})
+add_library(czcore STATIC)
+
+target_sources(czcore PUBLIC
+	${OTHER_FILES}
+)
+
+target_sources(czcore PUBLIC
+	FILE_SET czcoremodules TYPE CXX_MODULES
+	FILES ${MODULE_FILES}
+)
 
 target_link_libraries(czcore PUBLIC
 	utf8cpp
 	$<TARGET_NAME_IF_EXISTS:TracyClient>
 )
-
 target_include_directories(czcore PUBLIC
 	"./"
 )
@@ -69,7 +68,7 @@ source_group(
 
 set_target_properties(czcore PROPERTIES CXX_STANDARD 26)
 target_compile_options(czcore PRIVATE /Wall)
-target_precompile_headers(czcore PUBLIC "crazygaze/core/CorePch.h")
+target_precompile_headers(czcore PUBLIC "crazygaze/core/czcorePch.h")
 
 #
 # Set some preprocessor macros depending on the build configurations

@@ -1,8 +1,13 @@
-#pragma once
+module;
 
-#include "Common.h"
+#include "Common_Macros.h"
 
-namespace cz
+//////////////////////////////////////////////////////////////////////////
+export module czcore:threading;
+
+export import std;
+
+export namespace cz
 {
 
 class Semaphore
@@ -54,5 +59,3 @@ class ZeroSemaphore
 };
 
 } // namespace cz
-
-

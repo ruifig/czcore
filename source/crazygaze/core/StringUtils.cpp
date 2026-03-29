@@ -1,4 +1,7 @@
-#include "StringUtils.h"
+module czcore;
+
+
+import :stringutils;
 
 namespace cz
 {

@@ -1,6 +1,11 @@
-#include "Logging.h"
-#include "StringUtils.h"
-#include "LogOutputs.h"
+module czcore;
+
+import std;
+import :logging;
+import :logoutputs;
+import :stringutils;
+
+#include "Logging_Macros.h"
 
 CZ_DEFINE_LOG_CATEGORY(Main)
 
@@ -57,6 +62,7 @@ void doDebugBreak()
 #endif
 }
 
+
 /** Don't use this directly. Use the LOG macros */
 void logMessage(bool debuggerOutput, LogMessage& msg)
 {
@@ -107,7 +113,6 @@ void logMessage(bool debuggerOutput, LogMessage& msg)
 	#endif
 
 }
-
 
 } // namespace details
 
@@ -201,6 +206,5 @@ void setLogSettings(std::string_view logSettings)
 }
 
 } // namespace cz
-
 
 

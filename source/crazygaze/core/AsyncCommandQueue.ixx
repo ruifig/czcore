@@ -1,9 +1,13 @@
-#pragma once
+module;
 
-#include "Common.h"
-#include "SharedQueue.h"
+#include "Common_Macros.h"
 
-namespace cz
+//////////////////////////////////////////////////////////////////////////
+export module czcore:asynccommandqueue;
+
+import :sharedqueue;
+
+export namespace cz
 {
 
 class AsyncCommandQueue
@@ -58,4 +62,5 @@ private:
 };
 
 } // namespace cz
+
 

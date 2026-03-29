@@ -1,4 +1,4 @@
-#include "Math.h"
+import czcore;
 
 namespace cz
 {

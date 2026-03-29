@@ -1,9 +1,13 @@
-#pragma once
+module;
 
-#include "Common.h"
-#include "Logging.h"
+#include "Logging_Macros.h"
 
-namespace cz
+//////////////////////////////////////////////////////////////////////////
+export module czcore:singleton;
+
+import :logging;
+
+export namespace cz
 {
 
 class BaseSingleton

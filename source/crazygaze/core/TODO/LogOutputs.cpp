@@ -1,7 +1,6 @@
-module czcore;
-
-import :logoutputs;
-import :algorithm;
+#include "LogOutputs.h"
+#include "Algorithm.h"
+#include "StringUtils.h"
 
 namespace cz
 {

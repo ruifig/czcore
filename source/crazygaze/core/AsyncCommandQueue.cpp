@@ -1,13 +1,9 @@
-/********************************************************************
-	CrazyGaze (http://www.crazygaze.com)
-	Author : Rui Figueira
-	Email  : rui@crazygaze.com
-	
-	purpose:
-*********************************************************************/
+module czcore;
 
-#include "AsyncCommandQueue.h"
-#include "Logging.h"
+#include "Logging_Macros.h"
+
+import :asynccommandqueue;
+import :logging;
 
 namespace cz
 {
@@ -71,4 +67,5 @@ void AsyncCommandQueueAutomatic::run()
 }
 
 } // namespace cz
+
 

@@ -1,9 +1,15 @@
-#pragma once
+module;
 
-#include <array>
-#include "PlatformUtils.h"
+#include "Common_Macros.h"
 
-namespace cz
+//////////////////////////////////////////////////////////////////////////
+export module czcore:stringutils;
+
+export import std;
+import :common;
+
+
+export namespace cz
 {
 
 /**
@@ -433,7 +439,7 @@ class StringSplit
  * Invalid/empty entries are skipped; entries without '=' yield empty value.
  */
 template <class Visitor>
-static void visitKeyValues(std::string_view input, Visitor&& visitor, char pairSep = ',', char kvSep = '=')
+void visitKeyValues(std::string_view input, Visitor&& visitor, char pairSep = ',', char kvSep = '=')
 {
 	while (!input.empty())
 	{
@@ -563,6 +569,7 @@ int levenshtein_distance(std::string_view s1, std::string_view s2);
  * At the time of writing, no compiler implements this yet.
  * See https://en.cppreference.com/w/cpp/filesystem/path/formatter
  */
+export
 template<>
 struct std::formatter<cz::fs::path> : std::formatter<string_view>
 {
@@ -577,9 +584,11 @@ struct std::formatter<cz::fs::path> : std::formatter<string_view>
  * Given a codepoint, returns its UTF8 representation as a char array.
  * It doesn't check if the codepoint is valid.
  */
-inline std::array<char, 5> codepointToUtf8(uint32_t cp)
+export inline std::array<char, 5> codepointToUtf8(uint32_t cp)
 {
 	std::array<char, 5> result = {};
 	utf8::unchecked::append(cp, result.begin());
 	return result;
 }
+
+

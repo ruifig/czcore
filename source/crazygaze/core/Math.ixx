@@ -1,6 +1,13 @@
-#pragma once
+module;
 
-namespace cz
+#include "Common_Macros.h"
+
+//////////////////////////////////////////////////////////////////////////
+export module czcore:math;
+
+export import std;
+
+export namespace cz
 {
 
 	/**
@@ -19,7 +26,7 @@ namespace cz
 	 * Checks if the given number is a power of 2
 	 */
 	template <typename T>
-	static constexpr bool isPowerOf2(T x) noexcept
+	constexpr bool isPowerOf2(T x) noexcept
 	{
 		typedef typename std::make_unsigned<T>::type U;
 		// NOTE: 0 is NOT a power of 2, so we are checking for that.
@@ -31,7 +38,7 @@ namespace cz
 	 * Note that if `a` is zero, then it is considered as not a multiple
 	 */
 	template<typename T>
-	static constexpr bool isMultipleOf(T a, T b)
+	constexpr bool isMultipleOf(T a, T b)
 	{
 		// We don't want to consider 0 as a multiple of any other number
 		return (a) &&  (a % b == 0);
@@ -41,7 +48,7 @@ namespace cz
 	 * Returns `a` rounded up to a multiple of `b`
 	 */
 	template<typename T>
-	static constexpr T roundUpToMultipleOf(T a, T b)
+	constexpr T roundUpToMultipleOf(T a, T b)
 	{
 		// If `b` is 0, then we don't do any alignment
 		if (b == 0)
@@ -55,4 +62,5 @@ namespace cz
 	}
 
 } // namespace cz
+
 
