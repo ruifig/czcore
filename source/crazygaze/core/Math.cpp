@@ -1,4 +1,6 @@
-import czcore;
+module czcore;
+
+import :math;
 
 namespace cz
 {

@@ -1,4 +1,5 @@
 module czcore;
+
 import :logging;
 
 #include "Logging_Macros.h"

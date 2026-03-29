@@ -3,7 +3,7 @@ module;
 #include "Misc_Macros.h"
 
 //////////////////////////////////////////////////////////////////////////
-export module czcore;
+export module czcore:misc;
 
 import std;
 import :sharedptr;
