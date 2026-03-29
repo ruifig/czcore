@@ -1,11 +1,14 @@
-#pragma once
+module;
 
-#include "Common.h"
+#include "Common_Macros.h"
 
-namespace cz
+//////////////////////////////////////////////////////////////////////////
+export module czcore:platformutils;
+
+import :common;
+
+export namespace cz
 {
-
-namespace fs = std::filesystem;
 
 #if CZ_WINDOWS
 /**
@@ -31,5 +34,6 @@ fs::path getProcessPath();
 fs::path getProcessExe();
 
 } // namespace cz
+
 
 

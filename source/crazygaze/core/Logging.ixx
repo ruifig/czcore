@@ -119,7 +119,7 @@ class LogCategoryBase
 	LogLevel m_level;
 	LogLevel m_compileTimeLevel;
 	LogCategoryBase* m_next = nullptr;
-	inline static LogCategoryBase* ms_first = nullptr;
+	static LogCategoryBase* ms_first;
 };
 
 template<LogLevel defaultLevel, LogLevel compileTimeLevel>
@@ -168,5 +168,12 @@ export inline std::string_view getCZLOGContext()
 	return "";
 }
 
-CZ_DECLARE_LOG_CATEGORY(Main, Log, VeryVerbose)
+//CZ_DECLARE_LOG_CATEGORY(Main, Log, VeryVerbose)
+export class LogCategoryMain : public ::cz::LogCategory<::cz::LogLevel::Log, ::cz::LogLevel::VeryVerbose>
+{
+	public: LogCategoryMain() : LogCategory("Main")
+	{
+	}
+};
+export extern LogCategoryMain logMain;
 

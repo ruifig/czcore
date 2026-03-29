@@ -7,7 +7,8 @@ import :stringutils;
 
 #include "Logging_Macros.h"
 
-CZ_DEFINE_LOG_CATEGORY(Main)
+//CZ_DEFINE_LOG_CATEGORY(Main)
+LogCategoryMain logMain;
 
 namespace cz
 {
@@ -120,6 +121,7 @@ void logMessage(bool debuggerOutput, LogMessage& msg)
 // LogCategoryBase
 //////////////////////////////////////////////////////////////////////////
 
+LogCategoryBase* LogCategoryBase::ms_first = nullptr;
 LogCategoryBase::LogCategoryBase(const char* name, LogLevel initialLevel, LogLevel compileTimeLevel)
 	: m_name(name)
 	, m_initialLevel(initialLevel)

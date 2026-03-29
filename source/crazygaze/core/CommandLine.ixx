@@ -1,10 +1,13 @@
-#pragma once
+module;
 
-#include "Common.h"
-#include "Singleton.h"
-#include "StringUtils.h"
+#include "Common_Macros.h"
 
-namespace cz
+//////////////////////////////////////////////////////////////////////////
+export module czcore:commandline;
+
+import :singleton;
+
+export namespace cz
 {
 
 /**

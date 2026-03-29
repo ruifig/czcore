@@ -8,12 +8,16 @@
 	Based on ScopedGuard presented at
 	http://channel9.msdn.com/Shows/Going+Deep/C-and-Beyond-2012-Andrei-Alexandrescu-Systematic-Error-Handling-in-C
 *********************************************************************/
+module;
 
-#pragma once
+#include "Common_Macros.h"
 
-#include "Common.h"
+//////////////////////////////////////////////////////////////////////////
+export module czcore:scopeguard;
 
-namespace cz
+import std;
+
+export namespace cz
 {
 
 template<class Func>
@@ -102,9 +106,4 @@ namespace detail
 }
 
 } // namespace cz
-
-
-#define CZ_SCOPE_EXIT \
-	auto CZ_ANONYMOUS_VARIABLE(SCOPE_EXIT_STATE) \
-	= ::cz::detail::ScopeGuardOnExit() + [&]()
 

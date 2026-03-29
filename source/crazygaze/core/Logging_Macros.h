@@ -65,7 +65,6 @@
 		public:                                                                                                                           \
 		LogCategory##NAME() : LogCategory(#NAME) {}                                                                                       \
 	}; \
-	\
 	export extern LogCategory##NAME log##NAME;
 
 #define CZ_DEFINE_LOG_CATEGORY(NAME) LogCategory##NAME log##NAME;

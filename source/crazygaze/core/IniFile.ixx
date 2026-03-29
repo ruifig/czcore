@@ -1,10 +1,14 @@
-#pragma once
+module;
 
-#include "Common.h"
-#include "PlatformUtils.h"
-#include "StringUtils.h"
+#include "Common_Macros.h"
 
-namespace cz
+//////////////////////////////////////////////////////////////////////////
+export module czcore:inifile;
+
+import :logging;
+import :common;
+
+export namespace cz
 {
 
 struct IniFile

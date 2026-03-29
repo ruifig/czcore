@@ -1,6 +1,9 @@
-#include "File.h"
-#include "Logging.h"
-#include "StringUtils.h"
+module czcore;
+
+import :file;
+import :logging;
+
+#include "Logging_Macros.h"
 
 namespace cz
 {

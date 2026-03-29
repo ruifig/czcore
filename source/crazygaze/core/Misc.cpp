@@ -1,5 +1,7 @@
-#include "Logging.h"
-#include "Math.h"
+module czcore;
+import :logging;
+
+#include "Logging_Macros.h"
 
 namespace cz
 {

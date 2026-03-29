@@ -1,10 +1,13 @@
-#pragma once
+module;
 
-#include "Common.h"
-#include "PlatformUtils.h"
+#include "Common_Macros.h"
 
+//////////////////////////////////////////////////////////////////////////
+export module czcore:taggedptr;
 
-namespace cz
+import std;
+
+export namespace cz
 {
 
 // Only supported on x64 for now

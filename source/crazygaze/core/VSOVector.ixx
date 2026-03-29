@@ -1,9 +1,13 @@
-#pragma once
+module;
 
-#include "Common.h"
-#include "Math.h"
+#include "Common_Macros.h"
 
-namespace cz
+//////////////////////////////////////////////////////////////////////////
+export module czcore:vsovector;
+
+import :math;
+
+export namespace cz
 {
 
 /**
@@ -415,4 +419,5 @@ class VSOVector
 };
 
 } // namespace cz
+
 

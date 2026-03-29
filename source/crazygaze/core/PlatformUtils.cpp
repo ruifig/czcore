@@ -1,7 +1,10 @@
-#include "PlatformUtils.h"
-#include "ScopeGuard.h"
-#include "StringUtils.h"
-#include "Logging.h"
+module czcore;
+
+import :platformutils;
+import :scopeguard;
+#include "ScopeGuard_Macros.h"
+import :logging;
+#include "Logging_Macros.h"
 
 namespace cz
 {

@@ -1,7 +1,11 @@
-#pragma once
+module;
 
-#include "Common.h"
-#include "Logging.h"
+#include "Logging_Macros.h"
+
+//////////////////////////////////////////////////////////////////////////
+export module czcore:sharedptr;
+
+import :logging;
 
 
 /*
@@ -83,11 +87,10 @@ easier to spot these kind of bugs.
 #endif
 
 #if CZ_SHAREDPTR_STACKTRACES
-	#include "crazygaze/core/LinkedList.h"
+	import :linkedlist;
 #endif
 
-
-namespace cz
+export namespace cz
 {
 
 template<typename T>
@@ -1061,7 +1064,6 @@ std::strong_ordering operator<=>(const SharedRef<T1, Deleter>& left, const Share
 {
 	return left.get() <=> right.get();
 }
-
 
 
 } // namespace cz

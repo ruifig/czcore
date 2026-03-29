@@ -1,10 +1,15 @@
-#pragma once
+module;
 
-#include "crazygaze/core/Common.h"
-#include "crazygaze/core/PlatformUtils.h"
-#include "crazygaze/core/Logging.h"
+#include "../Logging_Macros.h"
 
-namespace cz
+//////////////////////////////////////////////////////////////////////////
+export module czcore:win32event;
+
+import std;
+import :logging;
+import :platformutils;
+
+export namespace cz
 {
 
 namespace details
@@ -200,6 +205,6 @@ class Win32Event : public details::Win32Handle<details::Win32Handle_NULL>
 
 };
 
-
 }
+
 

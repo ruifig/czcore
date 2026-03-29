@@ -1,7 +1,11 @@
-#pragma once
+module;
 
-#include "crazygaze/core/Common.h"
-#include "crazygaze/core/Math.h"
+#include "Common_Macros.h"
+
+//////////////////////////////////////////////////////////////////////////
+export module czcore:polychunkvector;
+
+import :math;
 
 #if defined(_MSVC_LANG)
 __pragma(warning(push))
@@ -11,7 +15,7 @@ __pragma(warning(disable: 4324))  /* 'structname': structure was padded due to a
 // Set this to 1 to clear memory to 0xAA on allocation and 0xCC on clearing
 #define POLYCHUNKVECTOR_CLEARMEM 0
 
-namespace cz
+export namespace cz
 {
 
 /**

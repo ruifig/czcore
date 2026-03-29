@@ -1,14 +1,16 @@
-// Based on https://gist.github.com/filsinger/1255697 , with some changes to work with VS 2015 CTP 6
-#pragma once
+module;
 
-#include "Common.h"
+#include "Common_Macros.h"
+
+//////////////////////////////////////////////////////////////////////////
+export module czcore:hash;
 
 //
 // Compile time hashing
 // C++11 32bit FNV-1 and FNV-1a string hashing (Fowler–Noll–Vo hash)
 //
 
-namespace cz
+export namespace cz
 {
 
 

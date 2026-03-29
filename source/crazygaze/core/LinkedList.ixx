@@ -1,8 +1,11 @@
-#pragma once
+module;
 
-#include "crazygaze/core/Common.h"
+#include "Common_Macros.h"
 
-namespace cz
+//////////////////////////////////////////////////////////////////////////
+export module czcore:linkedlist;
+
+export namespace cz
 {
 
 template<typename T>

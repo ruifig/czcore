@@ -1,7 +1,13 @@
-#pragma once
+module;
 
-#include "Common.h"
-#include "LinkedList.h"
+#include "Common_Macros.h"
+
+//////////////////////////////////////////////////////////////////////////
+export module czcore:handles;
+
+import std;
+import :linkedlist;
+
 
 /**
  * @file Handle.h
@@ -142,7 +148,7 @@
  *   Base class used to register all storages globally for bulk reset.
  */
 
-namespace cz
+export namespace cz
 {
 
 namespace details

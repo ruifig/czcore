@@ -1,6 +1,9 @@
-#include "CommandLine.h"
-#include "StringUtils.h"
-#include "Logging.h"
+module czcore;
+
+import :commandline;
+import :logging;
+
+#include "Logging_Macros.h"
 
 namespace cz
 {

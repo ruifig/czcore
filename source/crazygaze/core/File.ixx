@@ -1,9 +1,14 @@
-#pragma once
+module;
 
-#include "Common.h"
-#include "PlatformUtils.h"
+#include "Common_Macros.h"
 
-namespace cz
+//////////////////////////////////////////////////////////////////////////
+export module czcore:file;
+
+import std;
+import :common;
+
+export namespace cz
 {
 
 /**

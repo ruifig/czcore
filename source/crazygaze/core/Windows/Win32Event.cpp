@@ -1,4 +1,8 @@
-#include "Win32Event.h"
+module czcore;
+
+import :win32event;
+import :logging;
+#include "../Logging_Macros.h"
 
 using namespace std::literals::chrono_literals;
 

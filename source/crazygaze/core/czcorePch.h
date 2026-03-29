@@ -3,6 +3,8 @@
 #include "Common_Macros.h"
 
 #include <cstdint>
+#include <assert.h>
+#include <time.h>
 
 CZ_THIRD_PARTY_INCLUDES_START
 	#include "utf8.h"
