@@ -168,5 +168,5 @@ export inline std::string_view getCZLOGContext()
 	return "";
 }
 
-CZ_DECLARE_LOG_CATEGORY(Main, Log, VeryVerbose)
+CZ_DECLARE_MODULE_LOG_CATEGORY(Main, Log, VeryVerbose)
 

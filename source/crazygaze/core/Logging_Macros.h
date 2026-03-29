@@ -59,13 +59,19 @@
 #endif
 
 
-#define CZ_DECLARE_LOG_CATEGORY(NAME, DEFAULT_LEVEL, COMPILETIME_LEVEL) \
-	export class LogCategory##NAME : public ::cz::LogCategory<::cz::LogLevel::DEFAULT_LEVEL, ::cz::LogLevel::COMPILETIME_LEVEL>  \
+#define CZ_DECLARE_LOG_CATEGORY_IMPL(EXPORT, NAME, DEFAULT_LEVEL, COMPILETIME_LEVEL) \
+	EXPORT class LogCategory##NAME : public ::cz::LogCategory<::cz::LogLevel::DEFAULT_LEVEL, ::cz::LogLevel::COMPILETIME_LEVEL>  \
 	{                                                                                                                                     \
 		public:                                                                                                                           \
 		LogCategory##NAME() : LogCategory(#NAME) {}                                                                                       \
 	}; \
-	export extern LogCategory##NAME log##NAME;
+	EXPORT extern LogCategory##NAME log##NAME;
+
+#define CZ_DECLARE_MODULE_LOG_CATEGORY(NAME, DEFAULT_LEVEL, COMPILETIME_LEVEL) \
+	CZ_DECLARE_LOG_CATEGORY_IMPL(export, NAME, DEFAULT_LEVEL, COMPILETIME_LEVEL)
+
+#define CZ_DECLARE_LOG_CATEGORY(NAME, DEFAULT_LEVEL, COMPILETIME_LEVEL) \
+	CZ_DECLARE_LOG_CATEGORY_IMPL(, NAME, DEFAULT_LEVEL, COMPILETIME_LEVEL)
 
 #define CZ_DEFINE_LOG_CATEGORY(NAME) LogCategory##NAME log##NAME;
 
