@@ -1,11 +1,12 @@
 module;
 
-#include "Common_Macros.h"
+#include "Logging_Macros.h"
 
 //////////////////////////////////////////////////////////////////////////
 export module czcore:taggedptr;
 
 import std;
+import :logging;
 
 export namespace cz
 {
@@ -79,7 +80,7 @@ class TaggedPtr
 	TaggedPtr(T* p, uint64_t tag = 0)
 	{
 		setPtr(p);
-		setTag(tag);
+		setTag(static_cast<uint32_t>(tag));
 	}
 
 	void setPtr(T* ptr)

@@ -1,5 +1,10 @@
 #pragma once
 
+#include "crazygaze/core/AllMacros.h"
+
+import std;
+import czcore;
+
 template<
 	typename H,
 	typename = std::enable_if_t< std::is_same_v<void, typename std::invoke_result<H>::type>> 

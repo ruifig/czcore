@@ -1,5 +1,3 @@
-
-#include "crazygaze/core/LogOutputs.h"
 #include "TestUtils.h"
 
 using namespace cz;

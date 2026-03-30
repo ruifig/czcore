@@ -1,12 +1,13 @@
 module;
 
-#include "Common_Macros.h"
+#include "Logging_Macros.h"
 
 //////////////////////////////////////////////////////////////////////////
 export module czcore:handles;
 
 import std;
 import :linkedlist;
+import :logging;
 
 
 /**
@@ -564,7 +565,8 @@ class HandleImpl
 	template<typename... Args>
 	static HandleImpl<T, DataType> create(Args&&... args)
 	{
-		return createImpl<HandleImpl<T, DataType>>::createImpl(std::forward<Args>(args)...);
+		using HandleType = HandleImpl<T, DataType>;
+		return createImpl<HandleType>(std::forward<Args>(args)...);
 	}
 
 	bool isValid() const

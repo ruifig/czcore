@@ -1,3 +1,7 @@
+module;
+
+#include "Common_Macros.h"
+
 export module czcore;
 
 export import :algorithm;
@@ -25,3 +29,6 @@ export import :taggedptr;
 export import :threading;
 export import :vsovector;
 
+#if CZ_WINDOWS
+export import :win32event;
+#endif

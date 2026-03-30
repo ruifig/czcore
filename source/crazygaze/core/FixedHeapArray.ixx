@@ -1,11 +1,12 @@
 module;
 
-#include "Common_Macros.h"
+#include "Logging_Macros.h"
 
 //////////////////////////////////////////////////////////////////////////
 export module czcore:fixedheaparray;
 
 import :taggedptr;
+import :logging;
 
 export namespace cz
 {

@@ -1,5 +1,4 @@
-#include "crazygaze/core/StringUtils.h"
-
+#include "TestUtils.h"
 
 TEST_CASE("trim_char", "[StringUtils]")
 {

@@ -1,5 +1,4 @@
 #include "TestUtils.h"
-#include "crazygaze/core/Handles.h"
 
 using namespace cz;
 
@@ -14,6 +13,7 @@ struct HandleFoo
 	{
 		str += extra;
 	}
+	HandleFoo(const HandleFoo&) = default;
 
 	~HandleFoo()
 	{

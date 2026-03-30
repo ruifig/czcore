@@ -1,3 +1,5 @@
+#include "TestUtils.h"
+
 using namespace cz;
 
 namespace

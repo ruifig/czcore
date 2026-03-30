@@ -1,10 +1,6 @@
-using namespace cz;
-
-#include "crazygaze/core/Windows/Win32Event.h"
-#include "crazygaze/core/LogOutputs.h"
-
 #include "TestUtils.h"
 
+using namespace cz;
 using namespace std::literals::chrono_literals;
 
 TEST_CASE("Win32Event", "[Win32Event]")

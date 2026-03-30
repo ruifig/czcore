@@ -51,6 +51,7 @@ if(WIN32)
 endif()
 
 set(OTHER_FILES
+	"crazygaze/core/AllMacros.h"
 	"crazygaze/core/czcore.natvis"
 	"crazygaze/core/czcorePch.h"
 	"crazygaze/core/Common_Macros.h"

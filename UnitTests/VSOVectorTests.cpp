@@ -1,3 +1,5 @@
+#include "TestUtils.h"
+
 using namespace cz;
 
 #if defined(_MSVC_LANG)
