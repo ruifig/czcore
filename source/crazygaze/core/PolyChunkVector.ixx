@@ -474,6 +474,7 @@ class PolyChunkVector
 			// By definition any chunks we are transversing should be empty
 			assert(m_tail->usedCap == 0);
 
+
 			// Found an empty chunk that is big enough
 			if (m_tail->cap >= chunkCapacity)
 				return;
@@ -505,7 +506,7 @@ class PolyChunkVector
  *
  * The base type needs to have a virtual method `exec(...)`, which will be called when executing the commands.
  *
- * This utilizes PolyChunkVector so it avoids heat allocations.
+ * This utilizes PolyChunkVector so it avoids heap allocations.
  *
  * When implementing this, I compared performance with a similar implementation based on std::vector<std::function<...>>,
  * where enough space is reserved ahead of time to avoid reallocations as much as possible, I got the following results:
@@ -522,7 +523,6 @@ class PolyChunkVector
  * std one.
  *
  */
-
 class CommandVector
 {
   protected:
