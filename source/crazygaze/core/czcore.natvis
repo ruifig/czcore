@@ -8,9 +8,9 @@
 
   <Type Name="cz::SharedPtr&lt;*&gt;">
       <DisplayString Condition="m_control.ctrl == 0">empty</DisplayString>
-      <DisplayString Condition="(m_control.ctrl != 0)">SharedPtr {*($T1*)(m_control.ctrl+1)} [{m_control.ctrl-&gt;strong} strong ref, {m_control.ctrl-&gt;weak} weak refs] [{*m_control.ctrl}]</DisplayString>
+      <DisplayString Condition="(m_control.ctrl != 0)">SharedPtr {*(pointer)(m_control.ctrl+1)} [{m_control.ctrl-&gt;strong} strong ref, {m_control.ctrl-&gt;weak} weak refs] [{*m_control.ctrl}]</DisplayString>
       <Expand>
-          <Item Condition="m_control.ctrl != 0" Name="[ptr]">*($T1*)(m_control.ctrl+1)</Item>
+          <Item Condition="m_control.ctrl != 0" Name="[ptr]">*(pointer)(m_control.ctrl+1)</Item>
           <Item Condition="m_control.ctrl != 0" Name="[control block]">*m_control.ctrl</Item>
       </Expand>
   </Type>
@@ -18,9 +18,9 @@
   <Type Name="cz::WeakPtrImpl&lt;*&gt;">
       <DisplayString Condition="m_control.ctrl == 0">empty</DisplayString>
       <DisplayString Condition="(m_control.ctrl != 0) &amp;&amp; (m_control.ctrl-&gt;strong == 0)"> WeakPtrImpl expired [{m_control.ctrl-&gt;strong} strong ref, {m_control.ctrl-&gt;weak} weak refs] [{*m_control.ctrl}]</DisplayString>
-      <DisplayString Condition="(m_control.ctrl != 0) &amp;&amp; (m_control.ctrl-&gt;strong > 0)"> WeakPtrImpl {*($T1*)(m_control.ctrl+1)} [{m_control.ctrl-&gt;strong} strong ref, {m_control.ctrl-&gt;weak} weak refs] [{*m_control.ctrl}]</DisplayString>
+      <DisplayString Condition="(m_control.ctrl != 0) &amp;&amp; (m_control.ctrl-&gt;strong > 0)"> WeakPtrImpl {*(pointer)(m_control.ctrl+1)} [{m_control.ctrl-&gt;strong} strong ref, {m_control.ctrl-&gt;weak} weak refs] [{*m_control.ctrl}]</DisplayString>
       <Expand>
-          <Item Condition="m_control.ctrl != 0" Name="[ptr]">*($T1*)(m_control.ctrl+1)</Item>
+          <Item Condition="m_control.ctrl != 0" Name="[ptr]">*(pointer)(m_control.ctrl+1)</Item>
           <Item Condition="m_control.ctrl != 0" Name="[control block]">*m_control.ctrl</Item>
       </Expand>
   </Type>
@@ -32,12 +32,12 @@
     </DisplayString>
 
     <DisplayString Condition="m_bits.ptr != 0">
-      ptr={($T1*)(((m_bits.ptr ^ x64SignBit) - x64SignBit) &lt;&lt; LowTagBits)}, tag={m_bits.tag}, raw=0x{m_raw,x}
+      ptr={(pointer)(((m_bits.ptr ^ x64SignBit) - x64SignBit) &lt;&lt; LowTagBits)}, tag={m_bits.tag}, raw=0x{m_raw,x}
     </DisplayString>
 
 	<Expand>
 		<Item Name="ptr">
-		  ($T1*)(((m_bits.ptr ^ x64SignBit) - x64SignBit) &lt;&lt; LowTagBits)
+		  (pointer)(((m_bits.ptr ^ x64SignBit) - x64SignBit) &lt;&lt; LowTagBits)
 		</Item>
 		<Item Name="tag">
 		  m_bits.tag
@@ -73,7 +73,7 @@
     <Expand>
       <ArrayItems>
         <Size>m_c.c.m_bits.tag</Size>
-        <ValuePointer>($T1*)(((m_c.c.m_bits.ptr ^ m_c.c.x64SignBit) - m_c.c.x64SignBit) &lt;&lt; m_c.c.LowTagBits)</ValuePointer>
+        <ValuePointer>(pointer)(((m_c.c.m_bits.ptr ^ m_c.c.x64SignBit) - m_c.c.x64SignBit) &lt;&lt; m_c.c.LowTagBits)</ValuePointer>
       </ArrayItems>
     </Expand>
 
@@ -81,20 +81,20 @@
 
 
   <Type Name="cz::details::HandleEntry&lt;*&gt;">
-    <DisplayString Condition="meta.bits.free == 0">{*($T1*)(buf)}</DisplayString>
+    <DisplayString Condition="meta.bits.free == 0">{*(pointer)(buf)}</DisplayString>
     <DisplayString Condition="meta.bits.free == 1">empty</DisplayString>
 
 	<Expand>
 		<Item Name="meta">meta</Item>
-		<Item Name="value" Condition="meta.bits.free == 0">*($T1*)(buf)</Item>
+		<Item Name="value" Condition="meta.bits.free == 0">*(pointer)(buf)</Item>
 	</Expand>
   </Type>
 
-  <Type Name="cz::Handle&lt;*&gt;">
+  <Type Name="cz::HandleImpl&lt;*&gt;">
     <Intrinsic Name="storage_size" Expression="(size_t)(storage.data._Mypair._Myval2._Mylast - storage.data._Mypair._Myval2._Myfirst)" />
     <Intrinsic Name="is_valid" Expression="(bool)(meta.all &amp;&amp; meta.bits.idx &lt; storage_size())" />
     <Intrinsic Name="entry" Expression="storage.data._Mypair._Myval2._Myfirst[meta.bits.idx]" />
-    <Intrinsic Name="value" Expression="*($T1*)(storage.data._Mypair._Myval2._Myfirst[meta.bits.idx].buf)" />
+    <Intrinsic Name="value" Expression="*(pointer)(storage.data._Mypair._Myval2._Myfirst[meta.bits.idx].buf)" />
 
     <DisplayString Condition="meta.all == 0">Empty</DisplayString>
     <DisplayString Condition="is_valid()">{entry()}</DisplayString>

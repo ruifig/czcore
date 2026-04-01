@@ -191,6 +191,8 @@ namespace details
 	template <typename T>
 	struct HandleEntry
 	{
+		using pointer = T*;
+
 		struct Meta
 		{
 			union
@@ -558,6 +560,9 @@ template<typename T, typename DataType>
 class HandleImpl
 {
   public:
+
+	using pointer = T*;
+
 	static inline details::HandleStorage<T, DataType> storage;
 
 	details::HandleMeta<DataType> meta;

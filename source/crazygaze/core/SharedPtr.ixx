@@ -399,6 +399,8 @@ class SharedPtr
 
 	using ControlBlock = details::SharedPtrControlBlock<T, Deleter>;	
 
+	using pointer = T*;
+
 	SharedPtr() noexcept
 	{
 	}
@@ -599,6 +601,8 @@ class WeakPtrImpl
   public:
 
 	using ControlBlock = details::SharedPtrControlBlock<T, Deleter>;
+
+	using pointer = T*;
 
 	template<typename U, typename UDeleter, bool IsObserver>
 	friend class WeakPtrImpl;

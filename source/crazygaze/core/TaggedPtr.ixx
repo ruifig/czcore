@@ -24,6 +24,7 @@ template<typename T, uint32_t MinAlign = 1>
 class TaggedPtr
 {
 	static_assert(sizeof(void*) == 8, "TaggedPtr only supports 64 bits platforms");
+	using pointer = T*;
 
 	static consteval int calcLowTagBits()
 	{
