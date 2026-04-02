@@ -1,10 +1,13 @@
+// #CZCORE : use partition PlatformUtils.impl
 module czcore;
 
-import :platformutils;
-import :scopeguard;
 #include "ScopeGuard_Macros.h"
-import :logging;
 #include "Logging_Macros.h"
+
+import :PlatformUtils;
+import :ScopeGuard;
+import :Logging;
+
 
 namespace cz
 {

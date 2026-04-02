@@ -1,10 +1,11 @@
-module czcore;
-
-import :inifile;
-import :file;
-import :logging;
+module czcore:IniFile.impl;
 
 #include "Logging_Macros.h"
+
+import :IniFile;
+import :Logging;
+import :File;
+import :StringUtils;
 
 namespace cz
 {

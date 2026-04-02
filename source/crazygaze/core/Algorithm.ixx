@@ -3,9 +3,9 @@ module;
 #include "Common_Macros.h"
 
 //////////////////////////////////////////////////////////////////////////
-export module czcore:algorithm;
+export module czcore:Algorithm;
 
-import std;
+import :Common;
 
 /*
 * Miscellaneous little utilities similar what can be found int the stl <algorithm> header.

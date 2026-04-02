@@ -3,9 +3,9 @@ module;
 #include "Logging_Macros.h"
 
 //////////////////////////////////////////////////////////////////////////
-export module czcore:singleton;
+export module czcore:Singleton;
 
-import :logging;
+import :Logging;
 
 export namespace cz
 {

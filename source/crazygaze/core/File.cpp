@@ -1,9 +1,11 @@
+// #CZCORE: Use File.impl partition
 module czcore;
 
-import :file;
-import :logging;
-
 #include "Logging_Macros.h"
+
+import :File;
+import :Logging;
+import :StringUtils;
 
 namespace cz
 {

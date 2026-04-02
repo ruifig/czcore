@@ -3,7 +3,7 @@ module;
 #include "Common_Macros.h"
 
 //////////////////////////////////////////////////////////////////////////
-export module czcore:linkedlist;
+export module czcore:LinkedList;
 
 export namespace cz
 {

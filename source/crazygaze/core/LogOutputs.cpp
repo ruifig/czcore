@@ -1,7 +1,10 @@
-module czcore;
+module czcore:LogOutputs.impl;
 
-import :logoutputs;
-import :algorithm;
+#include "Logging_Macros.h"
+
+import :LogOutputs;
+import :Algorithm;
+import :StringUtils;
 
 namespace cz
 {

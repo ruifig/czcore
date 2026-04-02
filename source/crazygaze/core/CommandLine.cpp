@@ -1,9 +1,9 @@
-module czcore;
-
-import :commandline;
-import :logging;
+module czcore:CommandLine.impl;
 
 #include "Logging_Macros.h"
+
+import :CommandLine;
+import :StringUtils;
 
 namespace cz
 {

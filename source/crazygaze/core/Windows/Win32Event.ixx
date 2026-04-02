@@ -3,11 +3,11 @@ module;
 #include "../Logging_Macros.h"
 
 //////////////////////////////////////////////////////////////////////////
-export module czcore:win32event;
+export module czcore:Win32Event;
 
 import std;
-import :logging;
-import :platformutils;
+import :Logging;
+import :PlatformUtils;
 
 export namespace cz
 {

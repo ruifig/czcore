@@ -3,7 +3,7 @@ module;
 #include "Common_Macros.h"
 
 //////////////////////////////////////////////////////////////////////////
-export module czcore:math;
+export module czcore:Math;
 
 import std;
 

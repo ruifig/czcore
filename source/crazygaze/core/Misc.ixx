@@ -3,10 +3,9 @@ module;
 #include "Misc_Macros.h"
 
 //////////////////////////////////////////////////////////////////////////
-export module czcore:misc;
+export module czcore:Misc;
 
-import std;
-import :sharedptr;
+import :SharedPtr;
 
 export namespace cz
 {

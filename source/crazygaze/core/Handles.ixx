@@ -3,12 +3,10 @@ module;
 #include "Logging_Macros.h"
 
 //////////////////////////////////////////////////////////////////////////
-export module czcore:handles;
+export module czcore:Handles;
 
-import std;
-import :linkedlist;
-import :logging;
-
+import :Logging;
+import :LinkedList;
 
 /**
  * @file Handle.h

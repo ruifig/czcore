@@ -3,9 +3,9 @@ module;
 #include "Common_Macros.h"
 
 //////////////////////////////////////////////////////////////////////////
-export module czcore:platformutils;
+export module czcore:PlatformUtils;
 
-import :common;
+import :Common;
 
 export namespace cz
 {

@@ -1,6 +1,9 @@
+// #CZCORE: Use partion Math.impl
 module czcore;
 
-import :math;
+#include "Common_macros.h"
+
+import :Math;
 
 namespace cz
 {

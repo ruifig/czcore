@@ -4,31 +4,31 @@ module;
 
 export module czcore;
 
-export import :algorithm;
-export import :asynccommandqueue;
-export import :commandline;
-export import :common;
-export import :file;
-export import :fixedheaparray;
-export import :hash;
-export import :handles;
-export import :inifile;
-export import :linkedlist;
-export import :logging;
-export import :logoutputs;
-export import :math;
-export import :misc;
-export import :platformutils;
-export import :polychunkvector;
-export import :scopeguard;
-export import :sharedptr;
-export import :sharedqueue;
-export import :singleton;
-export import :stringutils;
-export import :taggedptr;
-export import :threading;
-export import :vsovector;
+export import :Algorithm;
+export import :AsyncCommandQueue;
+export import :CommandLine;
+export import :Common;
+export import :File;
+export import :FixedHeapArray;
+export import :Hash;
+export import :Handles;
+export import :IniFile;
+export import :LinkedList;
+export import :Logging;
+export import :LogOutputs;
+export import :Math;
+export import :Misc;
+export import :PlatformUtils;
+export import :PolyChunkVector;
+export import :ScopeGuard;
+export import :SharedPtr;
+export import :SharedQueue;
+export import :Singleton;
+export import :StringUtils;
+export import :TaggedPtr;
+export import :Threading;
+export import :VSOVector;
 
 #if CZ_WINDOWS
-export import :win32event;
+export import :Win32Event;
 #endif

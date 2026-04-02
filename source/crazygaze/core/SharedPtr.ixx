@@ -3,10 +3,9 @@ module;
 #include "Logging_Macros.h"
 
 //////////////////////////////////////////////////////////////////////////
-export module czcore:sharedptr;
+export module czcore:SharedPtr;
 
-import :logging;
-
+import :Logging;
 
 /*
 This controls if memory should be cleared when the last strong reference is gone and the object destroyed.
@@ -82,12 +81,13 @@ easier to spot these kind of bugs.
  * Set this to `std::true_type` in your build system to enable stack traces for all types by default.
  */
 #ifndef CZ_SHAREDPTR_STACKTRACES_DEFAULT
+
 	// By default, stack traces are disabled for all types, to minimize performance impact.
 	#define CZ_SHAREDPTR_STACKTRACES_DEFAULT std::false_type
 #endif
 
 #if CZ_SHAREDPTR_STACKTRACES
-	import :linkedlist;
+	import :LinkedList;
 #endif
 
 export namespace cz
@@ -401,6 +401,7 @@ class SharedPtr
 
 	using pointer = T*;
 
+
 	SharedPtr() noexcept
 	{
 	}
@@ -418,6 +419,7 @@ class SharedPtr
 	explicit SharedPtr(U* ptr) noexcept
 	{
 		if (ptr)
+
 		{
 			static_assert(std::is_convertible_v<U*, T*>);
 			void* rawPtr = (reinterpret_cast<uint8_t*>(static_cast<T*>(ptr)) - sizeof(details::BaseSharedPtrControlBlock));
@@ -431,6 +433,7 @@ class SharedPtr
 	}
 
 	SharedPtr(const SharedPtr& other) noexcept
+
 	{
 		acquireBlock(other.m_control.ctrl);
 	}
@@ -513,6 +516,7 @@ class SharedPtr
 
 	unsigned int use_count() const noexcept
 	{
+
 		return m_control.ctrl ? m_control.ctrl->strongRefs() : 0;
 	}
 
@@ -540,6 +544,7 @@ class SharedPtr
 	SharedRef<T, Deleter> toSharedRef() const noexcept
 	{
 		CZ_CHECK(*this);
+
 		return SharedRef<T,Deleter>(*this);
 	}
 

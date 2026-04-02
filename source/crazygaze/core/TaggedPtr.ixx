@@ -3,10 +3,9 @@ module;
 #include "Logging_Macros.h"
 
 //////////////////////////////////////////////////////////////////////////
-export module czcore:taggedptr;
+export module czcore:TaggedPtr;
 
-import std;
-import :logging;
+import :Logging;
 
 export namespace cz
 {

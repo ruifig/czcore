@@ -1,7 +1,9 @@
+// #CZGE : use partition StringUtils.impl
 module czcore;
 
+#include "Common_Macros.h"
 
-import :stringutils;
+import :StringUtils;
 
 namespace cz
 {

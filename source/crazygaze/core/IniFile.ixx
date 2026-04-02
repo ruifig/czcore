@@ -3,10 +3,9 @@ module;
 #include "Common_Macros.h"
 
 //////////////////////////////////////////////////////////////////////////
-export module czcore:inifile;
+export module czcore:IniFile;
 
-import :logging;
-import :common;
+import :Common;
 
 export namespace cz
 {

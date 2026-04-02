@@ -3,10 +3,10 @@ module;
 #include "Logging_Macros.h"
 
 //////////////////////////////////////////////////////////////////////////
-export module czcore:fixedheaparray;
+export module czcore:FixedHeapArray;
 
-import :taggedptr;
-import :logging;
+import :TaggedPtr;
+import :Logging;
 
 export namespace cz
 {

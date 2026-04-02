@@ -3,7 +3,7 @@ module;
 #include "Common_Macros.h"
 
 //////////////////////////////////////////////////////////////////////////
-export module czcore:hash;
+export module czcore:Hash;
 
 //
 // Compile time hashing

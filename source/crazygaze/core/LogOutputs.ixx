@@ -3,11 +3,11 @@ module;
 #include "Common_Macros.h"
 
 //////////////////////////////////////////////////////////////////////////
-export module czcore:logoutputs;
+export module czcore:LogOutputs;
 
-import :threading;
-import :singleton;
-import :asynccommandqueue;
+import :Threading;
+import :Singleton;
+import :AsyncCommandQueue;
 
 export namespace cz
 {

@@ -3,9 +3,9 @@ module;
 #include "Common_Macros.h"
 
 //////////////////////////////////////////////////////////////////////////
-export module czcore:vsovector;
+export module czcore:VSOVector;
 
-import :math;
+import :Math;
 
 export namespace cz
 {

@@ -3,9 +3,9 @@ module;
 #include "Common_Macros.h"
 
 //////////////////////////////////////////////////////////////////////////
-export module czcore:commandline;
+export module czcore:CommandLine;
 
-import :singleton;
+import :Singleton;
 
 export namespace cz
 {

@@ -1,8 +1,11 @@
+// #CZCORE : Use partition Misc.impl
 module czcore;
 
-import :logging;
-
 #include "Logging_Macros.h"
+
+import :Misc;
+import :Logging;
+
 
 namespace cz
 {

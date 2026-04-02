@@ -3,9 +3,9 @@ module;
 #include "Common_Macros.h"
 
 //////////////////////////////////////////////////////////////////////////
-export module czcore:sharedqueue;
+export module czcore:SharedQueue;
 
-import std;
+import :Common;
 
 export namespace cz
 {

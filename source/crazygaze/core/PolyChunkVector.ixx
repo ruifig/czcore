@@ -3,9 +3,9 @@ module;
 #include "Common_Macros.h"
 
 //////////////////////////////////////////////////////////////////////////
-export module czcore:polychunkvector;
+export module czcore:PolyChunkVector;
 
-import :math;
+import :Math;
 
 #if defined(_MSVC_LANG)
 __pragma(warning(push))

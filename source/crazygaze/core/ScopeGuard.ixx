@@ -13,9 +13,9 @@ module;
 #include "Common_Macros.h"
 
 //////////////////////////////////////////////////////////////////////////
-export module czcore:scopeguard;
+export module czcore:ScopeGuard;
 
-import std;
+import :Common;
 
 export namespace cz
 {

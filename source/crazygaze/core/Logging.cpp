@@ -1,12 +1,11 @@
+// #CZCORE : Use partition Logging.impl
 module czcore;
 
 #include "Logging_Macros.h"
 
-import std;
-import :logging;
-import :logoutputs;
-import :stringutils;
-
+import :Logging;
+import :LogOutputs;
+import :StringUtils;
 
 CZ_DEFINE_LOG_CATEGORY(Main)
 
