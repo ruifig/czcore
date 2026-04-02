@@ -1,10 +1,9 @@
 module;
 
-#include "../Logging_Macros.h"
-
 //////////////////////////////////////////////////////////////////////////
 export module czcore:Win32Event;
 
+import "../czcore.h";
 import std;
 import :Logging;
 import :PlatformUtils;

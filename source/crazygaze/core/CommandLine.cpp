@@ -1,7 +1,6 @@
 module czcore:CommandLine.impl;
 
-#include "Logging_Macros.h"
-
+import "czcore.h";
 import :CommandLine;
 import :StringUtils;
 

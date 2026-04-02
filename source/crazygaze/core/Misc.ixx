@@ -1,10 +1,10 @@
 module;
 
-#include "Misc_Macros.h"
 
 //////////////////////////////////////////////////////////////////////////
 export module czcore:Misc;
 
+import "czcore.h";
 import :SharedPtr;
 
 export namespace cz

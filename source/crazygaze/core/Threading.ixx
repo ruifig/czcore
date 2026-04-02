@@ -1,10 +1,9 @@
 module;
 
-#include "Common_Macros.h"
-
 //////////////////////////////////////////////////////////////////////////
 export module czcore:Threading;
 
+import "czcore.h";
 import :Common;
 
 export namespace cz

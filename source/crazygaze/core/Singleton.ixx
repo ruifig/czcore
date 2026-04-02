@@ -1,10 +1,9 @@
 module;
 
-#include "Logging_Macros.h"
-
 //////////////////////////////////////////////////////////////////////////
 export module czcore:Singleton;
 
+import "czcore.h";
 import :Logging;
 
 export namespace cz

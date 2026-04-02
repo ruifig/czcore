@@ -1,6 +1,6 @@
 #pragma once
 
-#include "crazygaze/core/AllMacros.h"
+#include "crazygaze/core/czcore.h"
 
 import std;
 import czcore;

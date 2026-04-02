@@ -1,10 +1,9 @@
 module;
 
-#include "Logging_Macros.h"
-
 //////////////////////////////////////////////////////////////////////////
 export module czcore:SharedPtr;
 
+import "czcore.h";
 import :Logging;
 
 /*

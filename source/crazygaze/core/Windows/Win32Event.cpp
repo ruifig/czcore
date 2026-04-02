@@ -1,8 +1,8 @@
 module czcore;
 
+import "../czcore.h";
 import :Win32Event;
 import :Logging;
-#include "../Logging_Macros.h"
 
 using namespace std::literals::chrono_literals;
 

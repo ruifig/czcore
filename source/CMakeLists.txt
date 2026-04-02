@@ -51,14 +51,17 @@ if(WIN32)
 endif()
 
 set(OTHER_FILES
-	"crazygaze/core/AllMacros.h"
 	"crazygaze/core/czcore.natvis"
-	"crazygaze/core/czcorePch.h"
+	"crazygaze/core/czcore.h"
 	"crazygaze/core/Common_Macros.h"
 	"crazygaze/core/Logging_Macros.h"
 	"crazygaze/core/Misc_Macros.h"
+	"crazygaze/core/Profiler.h"
 	"crazygaze/core/ScopeGuard_Macros.h"
 )
+
+set_property(SOURCE "crazygaze/core/czcore.h" PROPERTY LANGUAGE CXX)
+set_property(SOURCE "crazygaze/core/czcore.h" PROPERTY HEADER_FILE_ONLY OFF)
 
 set(ALL_FILES
 	${MODULE_INTERFACES}
@@ -91,7 +94,6 @@ source_group(
 
 set_target_properties(czcore PROPERTIES CXX_STANDARD 26)
 target_compile_options(czcore PRIVATE /Wall)
-target_precompile_headers(czcore PUBLIC "crazygaze/core/czcorePch.h")
 
 #
 # Set some preprocessor macros depending on the build configurations

@@ -172,12 +172,3 @@ namespace cz
 	Class& operator=(const Class&) = delete; \
 	Class& operator=(Class&&) = delete;
 
-
-#ifdef TRACY_ENABLE
-	#include "tracy/Tracy.hpp"
-#else
-	#define TracyLockable( type, varname ) type varname
-	#define LockableBase( type ) type
-	#define TracyIsConnected false
-#endif
-

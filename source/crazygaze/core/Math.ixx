@@ -1,10 +1,9 @@
 module;
 
-#include "Common_Macros.h"
-
 //////////////////////////////////////////////////////////////////////////
 export module czcore:Math;
 
+import "czcore.h";
 import std;
 
 export namespace cz

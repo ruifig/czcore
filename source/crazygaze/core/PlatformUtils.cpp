@@ -1,12 +1,30 @@
 // #CZCORE : use partition PlatformUtils.impl
-module czcore;
+//module czcore;
 
-#include "ScopeGuard_Macros.h"
-#include "Logging_Macros.h"
+//HRESULT StringValidateDestW(STRSAFE_PCNZWCH,size_t,const size_t);
+#include "czcore.h"
+#if 0
+#include "Common_Macros.h"
+#if CZ_WINDOWS
+	#define WIN32_LEAN_AND_MEAN
+	//#include <windows.h>
+	//#include <strsafe.h>
+	//#include <Psapi.h>
 
-import :PlatformUtils;
-import :ScopeGuard;
-import :Logging;
+	#ifdef max
+		#undef max
+	#endif
+
+	#ifdef min	
+		#undef min
+	#endif
+#endif
+#endif
+
+import czcore;
+//import :PlatformUtils;
+//import :ScopeGuard;
+//import :Logging;
 
 
 namespace cz
@@ -59,6 +77,7 @@ std::string getWin32Error(DWORD err, const char* funcname)
 namespace
 {
 
+#if CZ_WINDOWS
 std::wstring convertDevicePathToWin32Path(const std::wstring& devicePath)
 {
 	WCHAR driveStrings[255];
@@ -90,13 +109,13 @@ std::wstring convertDevicePathToWin32Path(const std::wstring& devicePath)
 	}
 	return devicePath;	// Return original path if no mapping was found
 }
+#endif
 
 } // anonymous namespace
 
 fs::path getProcessExe()
 {
 #if CZ_WINDOWS
-
 	DWORD size = MAX_PATH;
 
 	while(true)
@@ -122,8 +141,7 @@ fs::path getProcessExe()
 	}
 
 #else
-
-	#error Unknown/unsupported platform
+	//#error Unknown/unsupported platform
 	return "";
 #endif
 }

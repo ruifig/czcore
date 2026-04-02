@@ -1,10 +1,9 @@
 module;
 
-#include "Logging_Macros.h"
-
 //////////////////////////////////////////////////////////////////////////
 export module czcore:Logging;
 
+import "czcore.h";
 import :Common;
 
 export namespace cz

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "crazygaze/core/Common_Macros.h"
+#include "Common_Macros.h"
 
 CZ_THIRD_PARTY_INCLUDES_START
 

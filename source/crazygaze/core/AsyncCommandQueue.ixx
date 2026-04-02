@@ -1,10 +1,9 @@
 module;
 
-#include "Common_Macros.h"
-
 //////////////////////////////////////////////////////////////////////////
 export module czcore:AsyncCommandQueue;
 
+import "czcore.h";
 import :SharedQueue;
 
 export namespace cz

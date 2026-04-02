@@ -1,7 +1,6 @@
 module czcore:IniFile.impl;
 
-#include "Logging_Macros.h"
-
+import "czcore.h";
 import :IniFile;
 import :Logging;
 import :File;

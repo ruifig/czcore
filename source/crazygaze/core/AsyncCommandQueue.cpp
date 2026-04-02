@@ -1,7 +1,6 @@
 module czcore:AsyncCommandQueue.impl;
 
-#include "Logging_Macros.h"
-
+import "czcore.h";
 import :AsyncCommandQueue;
 import :Logging;
 

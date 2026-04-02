@@ -1,5 +1,6 @@
 module czcore:Threading.impl;
 
+import "czcore.h";
 import :Threading;
 
 namespace cz

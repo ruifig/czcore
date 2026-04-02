@@ -1,10 +1,9 @@
 module;
 
-#include "Common_Macros.h"
-
 //////////////////////////////////////////////////////////////////////////
 export module czcore:CommandLine;
 
+import "czcore.h";
 import :Singleton;
 
 export namespace cz

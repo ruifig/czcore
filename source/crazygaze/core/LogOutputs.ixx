@@ -1,10 +1,9 @@
 module;
 
-#include "Common_Macros.h"
-
 //////////////////////////////////////////////////////////////////////////
 export module czcore:LogOutputs;
 
+import "czcore.h";
 import :Threading;
 import :Singleton;
 import :AsyncCommandQueue;

@@ -1,9 +1,9 @@
 module;
 
-#include "Common_Macros.h"
-
 //////////////////////////////////////////////////////////////////////////
 export module czcore:LinkedList;
+
+import "czcore.h";
 
 export namespace cz
 {

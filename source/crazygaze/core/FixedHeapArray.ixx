@@ -1,10 +1,9 @@
 module;
 
-#include "Logging_Macros.h"
-
 //////////////////////////////////////////////////////////////////////////
 export module czcore:FixedHeapArray;
 
+import "czcore.h";
 import :TaggedPtr;
 import :Logging;
 

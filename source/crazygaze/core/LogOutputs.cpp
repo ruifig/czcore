@@ -1,7 +1,6 @@
 module czcore:LogOutputs.impl;
 
-#include "Logging_Macros.h"
-
+import "czcore.h";
 import :LogOutputs;
 import :Algorithm;
 import :StringUtils;

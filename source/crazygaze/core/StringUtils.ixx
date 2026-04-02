@@ -1,10 +1,9 @@
 module;
 
-#include "Common_Macros.h"
-
 //////////////////////////////////////////////////////////////////////////
 export module czcore:StringUtils;
 
+import "czcore.h";
 import :Common;
 
 export namespace cz

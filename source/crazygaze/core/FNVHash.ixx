@@ -1,9 +1,9 @@
 module;
 
-#include "Common_Macros.h"
-
 //////////////////////////////////////////////////////////////////////////
 export module czcore:Hash;
+
+import "czcore.h";
 
 //
 // Compile time hashing

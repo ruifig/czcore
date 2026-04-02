@@ -1,10 +1,9 @@
 module;
 
-#include "Common_Macros.h"
-
 //////////////////////////////////////////////////////////////////////////
 export module czcore:Algorithm;
 
+import "czcore.h";
 import :Common;
 
 /*
