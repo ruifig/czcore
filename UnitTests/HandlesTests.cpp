@@ -1,5 +1,5 @@
-#include "TestUtils.h"
 #include "crazygaze/core/Handles.h"
+#include "crazygaze/core/ScopeGuard.h"
 
 using namespace cz;
 
@@ -14,6 +14,8 @@ struct HandleFoo
 	{
 		str += extra;
 	}
+
+	HandleFoo(const HandleFoo&) = default;
 
 	~HandleFoo()
 	{

@@ -433,7 +433,7 @@ class StringSplit
  * Invalid/empty entries are skipped; entries without '=' yield empty value.
  */
 template <class Visitor>
-static void visitKeyValues(std::string_view input, Visitor&& visitor, char pairSep = ',', char kvSep = '=')
+void visitKeyValues(std::string_view input, Visitor&& visitor, char pairSep = ',', char kvSep = '=')
 {
 	while (!input.empty())
 	{

@@ -20,6 +20,7 @@ template<typename T, uint32_t MinAlign = 1>
 class TaggedPtr
 {
 	static_assert(sizeof(void*) == 8, "TaggedPtr only supports 64 bits platforms");
+	using pointer = T*;
 
 	static consteval int calcLowTagBits()
 	{
@@ -73,7 +74,7 @@ class TaggedPtr
 		static_assert(sizeof(TaggedPtr) == sizeof(void*), "TaggedPtr must be the same size as a pointer");
 	}
 
-	TaggedPtr(T* p, uint64_t tag = 0)
+	TaggedPtr(T* p, uint32_t tag = 0)
 	{
 		setPtr(p);
 		setTag(tag);

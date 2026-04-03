@@ -1,4 +1,3 @@
-#include <print>
 #include "crazygaze/core/PolyChunkVector.h"
 #include "crazygaze/core/ScopeGuard.h"
 
@@ -117,10 +116,10 @@ class PV : public PolyChunkVector<Base>
 {
   public:
 	using PolyChunkVector::PolyChunkVector;
-	static constexpr int headerSize = sizeof(Header);
-	static constexpr int baseSize = sizeof(Header) + sizeof(Base);
-	static constexpr int fooSize  = sizeof(Header) + sizeof(Foo);
-	static constexpr int defaultSize = static_cast<int>(PolyChunkVector::InitialChunkCapacity);
+	static constexpr size_t headerSize = sizeof(Header);
+	static constexpr size_t baseSize = sizeof(Header) + sizeof(Base);
+	static constexpr size_t fooSize  = sizeof(Header) + sizeof(Foo);
+	static constexpr size_t defaultSize = static_cast<int>(PolyChunkVector::InitialChunkCapacity);
 
 	/**
 	 * Used just for debugging
@@ -145,12 +144,12 @@ class PV : public PolyChunkVector<Base>
 	/**
 	 * Returns a vector of pairs, with each pair being the used (first) and total capacity of each chunk (second)
 	 */
-	std::vector<std::pair<int, int>> _dbgGetChunks() const
+	std::vector<std::pair<size_t, size_t>> _dbgGetChunks() const
 	{
-		std::vector<std::pair<int, int>> chunks;
+		std::vector<std::pair<size_t, size_t>> chunks;
 		for (const Chunk* c = m_head; c != nullptr; c = c->next)
 		{
-			chunks.emplace_back(static_cast<int>(c->usedCap), static_cast<int>(c->cap));
+			chunks.emplace_back(c->usedCap, c->cap);
 		}
 		return chunks;
 	}
@@ -168,7 +167,7 @@ class PV : public PolyChunkVector<Base>
 	}
 };
 
-void checkChunks(const PV& v, const std::vector<std::pair<int, int>>& expected)
+void checkChunks(const PV& v, const std::vector<std::pair<size_t, size_t>>& expected)
 {
 	auto chunks = v._dbgGetChunks();
 	CHECK(chunks.size() == expected.size());
@@ -255,7 +254,7 @@ TEST_CASE("PolyChunkVector", "[PolyChunkVector]")
 		v.clear(sizeof(Base));
 
 		// We tried to initialize with sizeof(Base), but it gets aligned, because it needs to fit at least 1 header + 1 object
-		checkChunks(v, {{0, PV::baseSize}});
+		checkChunks(v, {{0u, PV::baseSize}});
 
 		// Use one chunk completely
 		v.emplace_back<Base>(0x1122334455667788u);
@@ -266,7 +265,7 @@ TEST_CASE("PolyChunkVector", "[PolyChunkVector]")
 		checkChunks(v, {{PV::baseSize, PV::baseSize}, {PV::baseSize, PV::baseSize}});
 
 		v.clear();
-		checkChunks(v, {{0, PV::baseSize}, {0, PV::baseSize}});
+		checkChunks(v, {{0u, PV::baseSize}, {0u, PV::baseSize}});
 	}
 
 	SECTION("2 partially used chunks")
@@ -274,11 +273,11 @@ TEST_CASE("PolyChunkVector", "[PolyChunkVector]")
 		resetCounters();
 		CZ_SCOPE_EXIT { checkCounters(); };
 
-		constexpr int chunkSize = PV::baseSize + 16;
+		constexpr size_t chunkSize = PV::baseSize + 16;
 		PV v;
 		v.clear(chunkSize);
 
-		checkChunks(v, {{0, chunkSize}});
+		checkChunks(v, {{0u, chunkSize}});
 
 		// Use one chunk partially
 		v.emplace_back<Base>(0x1122334455667788u);
@@ -294,7 +293,7 @@ TEST_CASE("PolyChunkVector", "[PolyChunkVector]")
 		resetCounters();
 		CZ_SCOPE_EXIT { checkCounters(); };
 
-		constexpr int chunkSize = PV::baseSize + 8;
+		constexpr size_t chunkSize = PV::baseSize + 8;
 		PV v;
 		v.clear(chunkSize);
 		v.emplace_back<Base>(1u);
@@ -317,7 +316,7 @@ TEST_CASE("PolyChunkVector", "[PolyChunkVector]")
 		resetCounters();
 		CZ_SCOPE_EXIT { checkCounters(); };
 
-		constexpr int chunkSize = PV::baseSize * 2 + PV::fooSize * 2 + 8;
+		constexpr size_t chunkSize = PV::baseSize * 2 + PV::fooSize * 2 + 8;
 		PV v;
 		v.clear(chunkSize);
 
@@ -368,16 +367,16 @@ TEST_CASE("PolyChunkVector", "[PolyChunkVector]")
 		// By default, clear keeps the chunks
 		v.clear();
 		CHECK(v._dbgGetNumChunks() == std::make_pair(0, 3));
-		CHECK(v._dbgCheckTailUsedCapacity() == std::make_pair(0, PV::baseSize));
-		CHECK(v.calcCapacity() == std::make_pair(0, PV::baseSize * 3));
-		checkChunks(v, {{0, PV::baseSize}, {0, PV::baseSize}, {0, PV::baseSize}});
+		CHECK(v._dbgCheckTailUsedCapacity() == std::make_pair(0u, PV::baseSize));
+		CHECK(v.calcCapacity() == std::make_pair(0u, PV::baseSize * 3));
+		checkChunks(v, {{0u, PV::baseSize}, {0u, PV::baseSize}, {0u, PV::baseSize}});
 
 		// Foo is bigger, so it will need a new chunk, which is added at the end of the chain
 		v.emplace_back<Foo>(4u);
 		checkChunks(v,
-			{{0, PV::baseSize},
-			 {0, PV::baseSize},
-			 {0, PV::baseSize},
+			{{0u, PV::baseSize},
+			 {0u, PV::baseSize},
+			 {0u, PV::baseSize},
 			 {PV::fooSize, PV::fooSize}});
 
 		// Inserting a Base will cause another chunk to be allocated, with a capacity that is now bigger than the first 3,
@@ -386,9 +385,9 @@ TEST_CASE("PolyChunkVector", "[PolyChunkVector]")
 		CHECK(v._dbgGetNumChunks() == std::make_pair(2, 3));
 		CHECK(v.calcCapacity() == std::make_pair(PV::fooSize + PV::baseSize, PV::baseSize * 3 + PV::fooSize*2));
 		checkChunks(v,
-			{{0, PV::baseSize},
-			 {0, PV::baseSize},
-			 {0, PV::baseSize},
+			{{0u, PV::baseSize},
+			 {0u, PV::baseSize},
+			 {0u, PV::baseSize},
 			 {PV::fooSize, PV::fooSize},
 			 {PV::baseSize, PV::fooSize}});
 	}
@@ -414,9 +413,9 @@ TEST_CASE("PolyChunkVector", "[PolyChunkVector]")
 		// Foo is bigger, so it will need a new chunk, leaving the first 3 chunks empty and unused
 		v.emplace_back<Foo>(4u);
 		checkChunks(v,
-			{{0, PV::baseSize},
-			 {0, PV::baseSize},
-			 {0, PV::baseSize},
+			{{0u, PV::baseSize},
+			 {0u, PV::baseSize},
+			 {0u, PV::baseSize},
 			 {PV::fooSize, PV::fooSize}});
 
 		checkElements(v, {4});

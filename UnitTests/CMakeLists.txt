@@ -10,6 +10,7 @@ set(ALL_FILES
 	"SharedPtrTests.cpp"
 	"StringUtilsTests.cpp"
 	"TaggedPtrTests.cpp"
+	"TestUtils.h"
 	"VSOVEctorTests.cpp"
 )
 

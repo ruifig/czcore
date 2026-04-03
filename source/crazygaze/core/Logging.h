@@ -175,7 +175,7 @@ inline std::string_view getCZLOGContext()
 			{                                                                                                  \
 				::cz::LogMessage _cz_internal_msg;                                                             \
 				_cz_internal_msg.category = &log##name;                                                        \
-				_cz_internal_msg.frame = gFrameCounter.load();                                                 \
+				_cz_internal_msg.frame = ::cz::gFrameCounter.load();                                           \
 				_cz_internal_msg.level = ::cz::LogLevel::logLevel;                                             \
 				_cz_internal_msg.context = getCZLOGContext();                                                  \
 				_cz_internal_msg.msg = std::format(fmtStr, ##__VA_ARGS__);                                     \

@@ -1,3 +1,4 @@
+#include "TestUtils.h"
 #include "crazygaze/core/StringUtils.h"
 
 

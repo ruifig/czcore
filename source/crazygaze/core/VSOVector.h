@@ -251,7 +251,7 @@ class VSOVector
 	 * Creates the space for OOB data
 	 */
 	template<typename T>
-	Ref oob_push_back_empty(const T* data, SizeType count)
+	Ref oob_push_back_empty(const T*, SizeType count)
 	{
 		static_assert(std::is_standard_layout_v<T>);
 		static_assert(std::is_trivially_destructible_v<T>);
