@@ -501,7 +501,7 @@ class PolyChunkVector
  *
  * The base type needs to have a virtual method `exec(...)`, which will be called when executing the commands.
  *
- * This utilizes PolyChunkVector so it avoids heat allocations.
+ * This utilizes PolyChunkVector so it avoids heap allocations.
  *
  * When implementing this, I compared performance with a similar implementation based on std::vector<std::function<...>>,
  * where enough space is reserved ahead of time to avoid reallocations as much as possible, I got the following results:
