@@ -128,7 +128,7 @@ class File
 
 		Buffer(size_t size)
 		{
-			ptr = reinterpret_cast<char*>(malloc(size ? size : 1));
+			ptr = reinterpret_cast<uint8_t*>(malloc(size ? size : 1));
 			// IMPORTANT: `size` is intentionally NOT set here, so the caller code can set it ONLY if there was no error
 		}
 
@@ -168,12 +168,12 @@ class File
 		std::string_view to_string_view() const
 		{
 			if (isValid())
-				return std::string_view(ptr, size);
+				return std::string_view(reinterpret_cast<char*>(ptr), size);
 			else
 				return "";
 		}
 
-		char* ptr = nullptr;
+		uint8_t* ptr = nullptr;
 		size_t size = InvalidSize;
 	};
 
