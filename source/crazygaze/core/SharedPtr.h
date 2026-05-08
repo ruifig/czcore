@@ -975,6 +975,79 @@ class SharedRef
 	SharedPtrT m_ptr;
 };
 
+/**
+ * Equivalent to std::enable_shared_from_this
+ * 
+ * Usage:
+ *   class MyClass : public EnableSharedFromThis<MyClass> {
+ *   public:
+ *       void someMethod() {
+ *           SharedPtr<MyClass> sharedThis = sharedFromThis();
+ *           // Use sharedThis...
+ *       }
+ *   };
+ *
+ *
+ * This should only be used with instances that are allocated via makeShared or properly allocated with
+ * BaseSharedPtrControlBlock::allocBlock, so that the control block is set up correctly.
+ *
+ */
+template <typename T, typename Deleter = details::SharedPtrDefaultDeleter>
+class EnableSharedFromThis
+{
+  protected:
+	constexpr EnableSharedFromThis() noexcept = default;
+	EnableSharedFromThis(const EnableSharedFromThis&) noexcept = default;
+	EnableSharedFromThis& operator=(const EnableSharedFromThis&) noexcept = default;
+	~EnableSharedFromThis() = default;
+
+  public:
+	/**
+	 * Returns a SharedPtr<T> to this object.
+	 *
+	 * NOTE: Assumes the object was allocated via makeShared or proper allocation.
+	 * Using this on a stack-allocated or improperly allocated object will crash.
+	 */
+	SharedPtr<T, Deleter> sharedFromThis()
+	{
+		T* derivedThis = static_cast<T*>(this);
+		return SharedPtr<T, Deleter>(derivedThis);
+	}
+
+	/**
+	 * Returns a SharedPtr<T> to this object.
+	 *
+	 * NOTE: Assumes the object was allocated via makeShared or proper allocation.
+	 * Using this on a stack-allocated or improperly allocated object will crash.
+	 */
+	SharedPtr<const T, Deleter> sharedFromThis() const
+	{
+		const T* derivedThis = static_cast<const T*>(this);
+		// Need to cast away const because SharedPtr constructor expects non-const
+		return SharedPtr<const T, Deleter>(const_cast<T*>(derivedThis));
+	}
+
+	/**
+	 * Returns a WeakPtr<T> to this object.
+	 *
+	 * Useful when you want to check if the object is still alive in async scenarios.
+	 */
+	WeakPtr<T, Deleter> weakFromThis()
+	{
+		return WeakPtr<T, Deleter>(sharedFromThis());
+	}
+
+	/**
+	 * Returns a WeakPtr<T> to this object.
+	 *
+	 * Useful when you want to check if the object is still alive in async scenarios.
+	 */
+	WeakPtr<const T, Deleter> weakFromThis() const
+	{
+		return WeakPtr<const T, Deleter>(sharedFromThis());
+	}
+};
+
 //
 // SharedPtr utilities
 //
