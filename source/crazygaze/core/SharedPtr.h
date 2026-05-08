@@ -90,12 +90,6 @@ easier to spot these kind of bugs.
 namespace cz
 {
 
-template<typename T>
-inline void sharedPtrDeleter(T* obj)
-{
-	obj->~T();
-}
-
 /**
  * Used to extract stack traces from SharedPtr and WeakPtr instances
  */
@@ -349,7 +343,7 @@ namespace details
 			assert(strong > 0);
 			if (strong == 1)
 			{
-				auto ptr = obj();
+				auto ptr = const_cast<std::remove_const_t<T>*>(obj());
 				Deleter{}(ptr);
 				#if CZ_SHAREDPTR_CLEAR_MEM
 					memset(ptr, 0xDD, size);
@@ -418,8 +412,8 @@ class SharedPtr
 		if (ptr)
 		{
 			static_assert(std::is_convertible_v<U*, T*>);
-			void* rawPtr = (reinterpret_cast<uint8_t*>(static_cast<T*>(ptr)) - sizeof(details::BaseSharedPtrControlBlock));
-			acquireBlock(reinterpret_cast<ControlBlock*>(rawPtr));
+			const void* rawPtr = (reinterpret_cast<const uint8_t*>(static_cast<T*>(ptr)) - sizeof(details::BaseSharedPtrControlBlock));
+			acquireBlock(reinterpret_cast<ControlBlock*>(const_cast<void*>(rawPtr)));
 		}
 	}
 
@@ -1141,6 +1135,34 @@ std::strong_ordering operator<=>(const SharedRef<T1, Deleter>& left, const Share
 	return left.get() <=> right.get();
 }
 
+
+//
+// Utilities to make it easier to use EnableSharedFromThis
+//
+
+template <typename T, typename Deleter = details::SharedPtrDefaultDeleter>
+SharedPtr<T, Deleter> toStrong(T* obj)
+{
+	return static_pointer_cast<T>(obj->sharedFromThis());
+}
+
+template <typename T, typename Deleter = details::SharedPtrDefaultDeleter>
+SharedPtr<const T, Deleter> toStrong(const T* obj)
+{
+	return static_pointer_cast<const T>(obj->sharedFromThis());
+}
+
+template <typename T, typename Deleter = details::SharedPtrDefaultDeleter>
+SharedPtr<T, Deleter> toStrong(T& obj)
+{
+	return static_pointer_cast<T>(obj.sharedFromThis());
+}
+
+template <typename T, typename Deleter = details::SharedPtrDefaultDeleter>
+SharedPtr<const T, Deleter> toStrong(const T& obj)
+{
+	return static_pointer_cast<const T>(obj.sharedFromThis());
+}
 
 
 } // namespace cz
