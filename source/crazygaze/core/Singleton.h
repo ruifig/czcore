@@ -11,6 +11,15 @@ class BaseSingleton
   public:
 	BaseSingleton() = default;
 	virtual ~BaseSingleton() = default;
+
+	/**
+	 * Depending on your architecture, it can be handy to have a virtual shutdown to call.
+	 * Note that this is not called automatically anywhere. It's just here in case your use of singletons
+	 * needs it, and it's up to you to call these.
+	 */
+	virtual void shutdown()
+	{
+	}
 };
 
 template<typename T>
