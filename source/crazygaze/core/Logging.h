@@ -219,6 +219,19 @@ inline std::string_view getCZLOGContext()
 	#define CZ_VERIFY_F(expr, format, ...) {if(expr) {}}
 #endif
 
+#if CZ_DEBUG
+	#define CZ_CHECK_SLOW(expr) CZ_CHECK_IMPL(expr)
+	#define CZ_CHECK_SLOW_F(expr, format, ...) CZ_CHECK_F_IMPL(expr, format, ##__VA_ARGS__)
+
+	#define CZ_VERIFY_SLOW(expr) CZ_CHECK_IMPL(expr)
+	#define CZ_VERIFY_SLOW_F(expr, format, ...) CZ_CHECK_F_IMPL(expr, format, ##__VA_ARGS__)
+#else
+	#define CZ_CHECK_SLOW(expr) ((void)0)
+	#define CZ_CHECK_SLOW_F(expr, format, ...) ((void)0)
+
+	#define CZ_VERIFY_SLOW(expr) {if(expr) {}}
+	#define CZ_VERIFY_SLOW_F(expr, format, ...) {if(expr) {}}
+#endif
 
 #define CZ_DECLARE_LOG_CATEGORY(NAME, DEFAULT_LEVEL, COMPILETIME_LEVEL) \
 	extern class LogCategory##NAME : public ::cz::LogCategory<::cz::LogLevel::DEFAULT_LEVEL, ::cz::LogLevel::COMPILETIME_LEVEL>  \
