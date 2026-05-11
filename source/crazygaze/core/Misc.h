@@ -76,15 +76,15 @@ struct pointer_comp
 		{
 		}
 
-		template <class U, typename Deleter>
-		helper(SharedPtr<U, Deleter> const& sp)
-			: ptr(sp.get())
-		{
-		}
-
 		template <class U, class... Ts>
 		helper(std::unique_ptr<U, Ts...> const& up)
 			: ptr(up.get())
+		{
+		}
+
+		template<class U>
+		helper(SharedPtr<U> const& sp)
+			: ptr(sp.get())
 		{
 		}
 

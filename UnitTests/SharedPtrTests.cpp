@@ -33,12 +33,15 @@ struct Bar : Foo
 	int c = 300;
 };
 
+// This is used to test using different deleters.
 struct MyDeleter
 {
+	inline static int deletedCount = 0;
 	void operator()(Base* obj) const
 	{
 		obj->a = -1;
 		obj->~Base();
+		deletedCount++;
 	}
 };
 
@@ -77,7 +80,7 @@ struct SharedPtrTests
 		}
 		else
 		{
-			return new(details::BaseSharedPtrControlBlock::allocBlock<T>()) T(std::forward<Args>(args)...);
+			return new(details::allocSharedPtrBlock<T>()) T(std::forward<Args>(args)...);
 		}
 	}
 
@@ -704,6 +707,26 @@ struct SharedPtrTests
 		weak_operators();
 	}
 };
+
+namespace
+{
+	
+	struct Foo2 : public Base
+	{
+		using SharedPtrDeleter = MyDeleter;
+	};
+}
+
+TEST_CASE("Custom Deleter", "[SmartPointers]")
+{
+	CHECK(MyDeleter::deletedCount == 0);
+
+	{
+		SharedPtr<Foo2> p1 = makeShared<Foo2>();
+	}
+
+	CHECK(MyDeleter::deletedCount == 1);
+}
 
 TEST_CASE("SharedPtr", "[SmartPointers]")
 {

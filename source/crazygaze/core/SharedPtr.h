@@ -186,6 +186,8 @@ namespace details
 		{
 		}
 
+		virtual ~BaseSharedPtrControlBlock() = default;
+
 		template<typename T>
 		T* toObject()
 		{
@@ -222,28 +224,8 @@ namespace details
 			return weak;
 		}
 
-		/**
-		 * Allocates memory for a control block + a T object
-		 *
-		 * Returns the pointer that can be used to construct a T object with placement new
-		 */
-		template<typename T>
-		static void* allocBlock()
-		{
-			size_t allocSize = sizeof(BaseSharedPtrControlBlock) + sizeof(T);
-			void* basePtr = malloc(allocSize);
-			BaseSharedPtrControlBlock* control = new (basePtr) BaseSharedPtrControlBlock(sizeof(T));
+		virtual void deleteObj() = 0;
 
-			#if CZ_SHAREDPTR_STACKTRACES
-			if constexpr(details::enable_sharedptr_stacktraces_v<T>)
-			{
-				control->traceData = std::make_unique<StackTraceData>();
-				control->traceData->firstTrace = control->createStackTrace(SharedPtrTrace::Type::Creation);
-			}
-			#endif
-
-			return control + 1;
-		}
 
 		#if CZ_SHAREDPTR_STACKTRACES
 		std::unique_ptr<SharedPtrTrace> createStackTrace(SharedPtrTrace::Type type)
@@ -286,6 +268,9 @@ namespace details
 
 	  protected:
 
+		template<typename T, typename Deleter>
+		friend void* allocSharedPtrBlock();
+
 		#if CZ_SHAREDPTR_STACKTRACES
 		struct StackTraceData
 		{
@@ -315,12 +300,27 @@ namespace details
 		}
 	};
 
-	template<typename T, typename Deleter = SharedPtrDefaultDeleter>
+	template <typename T, class = void>
+	struct GetSharedPtrDeleterType
+	{
+		using type = SharedPtrDefaultDeleter;
+	};
+
+	// Use SFINAE to check if T has a "SharedPtrDeleter" member, and if so, use it as the value for
+	// enable_sharedptr_stacktraces<T>::value
+	template<typename T>
+	struct GetSharedPtrDeleterType<T, std::void_t<typename T::SharedPtrDeleter>>
+	{
+		using type = typename T::SharedPtrDeleter;
+	};
+
+	template<typename T>
 	class SharedPtrControlBlock : public BaseSharedPtrControlBlock
 	{
 	  public:
 
-		SharedPtrControlBlock()
+		SharedPtrControlBlock([[maybe_unused]] size_t size)
+			: BaseSharedPtrControlBlock(size)
 		{
 			// The only difference between the base object and a specialized one is that the specialized one adds some more methods.
 			static_assert(sizeof(*this) == sizeof(BaseSharedPtrControlBlock));
@@ -343,29 +343,91 @@ namespace details
 			assert(strong > 0);
 			if (strong == 1)
 			{
-				auto ptr = const_cast<std::remove_const_t<T>*>(obj());
-				Deleter{}(ptr);
-				#if CZ_SHAREDPTR_CLEAR_MEM
-					memset(ptr, 0xDD, size);
-				#endif
+				deleteObj();
 			}
 
 			--strong;
 			if (strong == 0 && weak == 0)
 			{
+				// We need to explicitly call the virtual destructor
+				this->~SharedPtrControlBlock();
 				free(this);
 			}
 		}
 
 	};
-}
 
-template<typename T, typename Deleter>
+	template <typename T, typename Deleter = SharedPtrDefaultDeleter>
+	class SharedPtrControlBlockWithDeleter : public SharedPtrControlBlock<T>
+	{
+	  public:
+		SharedPtrControlBlockWithDeleter([[maybe_unused]] size_t size)
+			: SharedPtrControlBlock<T>(size)
+		{
+			// The only difference between the base object and a specialized one is that the specialized one adds some more methods.
+			static_assert(sizeof(*this) == sizeof(SharedPtrControlBlock<T>));
+		}
+
+		virtual void deleteObj() override
+		{
+			auto ptr = const_cast<std::remove_const_t<T>*>(this->obj());
+			Deleter{}(ptr);
+			#if CZ_SHAREDPTR_CLEAR_MEM
+				memset(ptr, 0xDD, this->size);
+			#endif
+		}
+	};
+
+	template<typename T>
+	using SharedPtrDeleterFor = typename details::GetSharedPtrDeleterType<T>::type;
+
+	/**
+	 * Allocates memory for a control block + a T object
+	 *
+	 * Returns the pointer that can be used to construct a T object with placement new
+	 */
+	template<typename T, typename Deleter = SharedPtrDeleterFor<T>>
+	static void* allocSharedPtrBlock()
+	{
+		size_t allocSize = sizeof(SharedPtrControlBlockWithDeleter<T, Deleter>) + sizeof(T);
+		void* basePtr = malloc(allocSize);
+		BaseSharedPtrControlBlock* control = new (basePtr) SharedPtrControlBlockWithDeleter<T, Deleter>(sizeof(T));
+
+		#if CZ_SHAREDPTR_STACKTRACES
+		if constexpr(details::enable_sharedptr_stacktraces_v<T>)
+		{
+			control->traceData = std::make_unique<BaseSharedPtrControlBlock::StackTraceData>();
+			control->traceData->firstTrace = control->createStackTrace(SharedPtrTrace::Type::Creation);
+		}
+		#endif
+
+		return control + 1;
+	}
+
+} // namespace details
+
+template<typename T>
 class SharedRef;
 
 /**
  * A rather simplistic std::shared_ptr equivalent, that is faster than std::shared_ptr since it is NOT thread safe.
  * Things to be aware of:
+ *
+ * Custom deleters can be supported by defining a "SharedPtrDeleter" type in your class, and providing an implementation for it.
+ * For example:
+ * ```
+ *		struct MyDeleter
+ *		{
+ * 			template<typename T>
+ * 			void operator()(T* obj) const { obj->~T(); }
+ *		};
+ *
+ *		struct Foo
+ *		{
+ *			SharedPtrDeleter = MyDeleter; // Specify what deleter to use for this class
+ *		};
+ * ```
+ * 
  * 
  * - NOT thread safe. That's the point of this class.
  * - Might not provide all the functions and/or operators std::shared_ptr provides
@@ -375,20 +437,22 @@ class SharedRef;
  *		- Using BaseSharedPtrControlBlock::allocBlock and placement new. e.g:
  *			SharedPtr<Foo> foo(new (details::BaseSharedPtrControlBlock::allocBlock<Foo>()) Foo);
  *			The reason this constructor is provided is so that SharedPtr can be used with classes whose constructors are private/protected.
+ *
+ * 
  * 
  */
-template<typename T, typename Deleter = details::SharedPtrDefaultDeleter>
+template<typename T>
 class SharedPtr
 {
   public:
 
-	template<typename U, typename UDeleter, bool IsObserver>
+	template<typename U, bool IsObserver>
 	friend class WeakPtrImpl;
 
-	template<typename U, typename UDeleter>
+	template<typename U>
 	friend class SharedPtr;
 
-	using ControlBlock = details::SharedPtrControlBlock<T, Deleter>;	
+	using ControlBlock = details::SharedPtrControlBlock<T>;	
 
 	using pointer = T*;
 	using element_type = T;
@@ -428,7 +492,7 @@ class SharedPtr
 	}
 
 	template<typename U>
-	SharedPtr(const SharedPtr<U, Deleter>& other) noexcept
+	SharedPtr(const SharedPtr<U>& other) noexcept
 	{
 		static_assert(std::is_convertible_v<U*, T*>);
 		acquireBlock(other.m_control.ctrl);
@@ -453,7 +517,7 @@ class SharedPtr
 	}
 
 	template<typename U>
-	SharedPtr& operator=(const SharedPtr<U, Deleter>& other) noexcept
+	SharedPtr& operator=(const SharedPtr<U>& other) noexcept
 	{
 		static_assert(std::is_convertible_v<U*, T*>);
 		SharedPtr(other).swap(*this);
@@ -467,7 +531,7 @@ class SharedPtr
 	}
 
 	template<typename U>
-	SharedPtr& operator=(SharedPtr<U, Deleter>&& other) noexcept
+	SharedPtr& operator=(SharedPtr<U>&& other) noexcept
 	{
 		static_assert(std::is_convertible_v<U*, T*>);
 		SharedPtr(std::move(other)).swap(*this);
@@ -529,10 +593,10 @@ class SharedPtr
 	}
 
 	// Explicit access to underlying SharedPtr
-	SharedRef<T, Deleter> toSharedRef() const noexcept
+	SharedRef<T> toSharedRef() const noexcept
 	{
 		CZ_CHECK(*this);
-		return SharedRef<T,Deleter>(*this);
+		return SharedRef<T>(*this);
 	}
 
 	SharedPtrTraces getTraces() const noexcept
@@ -548,7 +612,7 @@ class SharedPtr
   private:
 
 	template<typename U>
-	void acquireBlock(details::SharedPtrControlBlock<U, Deleter>* control) noexcept
+	void acquireBlock(details::SharedPtrControlBlock<U>* control) noexcept
 	{
 		static_assert(std::is_convertible_v<U*,T*>);
 		m_control.ctrl = reinterpret_cast<ControlBlock*>(control);
@@ -587,17 +651,17 @@ class SharedPtr
 	} m_control;
 };
 
-template<typename T, typename Deleter, bool IsObserver>
+template<typename T, bool IsObserver>
 class WeakPtrImpl
 {
   public:
 
-	using ControlBlock = details::SharedPtrControlBlock<T, Deleter>;
+	using ControlBlock = details::SharedPtrControlBlock<T>;
 
 	using pointer = T*;
 	using element_type = T;
 
-	template<typename U, typename UDeleter, bool IsObserver>
+	template<typename U, bool IsObserver>
 	friend class WeakPtrImpl;
 
 	constexpr WeakPtrImpl() = default;
@@ -608,14 +672,14 @@ class WeakPtrImpl
 	}
 
 	template<typename U, bool IsObserver>
-	WeakPtrImpl(const WeakPtrImpl<U, Deleter, IsObserver>& other) noexcept
+	WeakPtrImpl(const WeakPtrImpl<U, IsObserver>& other) noexcept
 	{
 		static_assert(std::is_convertible_v<U*, T*>);
 		acquireBlock(other.m_control.ctrl);
 	}
 
 	template<typename U>
-	WeakPtrImpl(const SharedPtr<U, Deleter>& other) noexcept
+	WeakPtrImpl(const SharedPtr<U>& other) noexcept
 	{
 		static_assert(std::is_convertible_v<U*, T*>);
 		acquireBlock(other.m_control.ctrl);
@@ -626,16 +690,16 @@ class WeakPtrImpl
 		std::swap(m_control, other.m_control);
 	}
 
-	~WeakPtrImpl() noexcept
-	{
-		m_control.release();
-	}
-
 	template<typename U, bool IsObserver>
-	WeakPtrImpl(WeakPtrImpl<U, Deleter, IsObserver>&& other) noexcept
+	WeakPtrImpl(WeakPtrImpl<U, IsObserver>&& other) noexcept
 	{
 		static_assert(std::is_convertible_v<U*, T*>);
 		std::swap(m_control, reinterpret_cast<ControlHolder&>(other.m_control));
+	}
+
+	~WeakPtrImpl() noexcept
+	{
+		m_control.release();
 	}
 
 	WeakPtrImpl& operator=(const WeakPtrImpl& other) noexcept
@@ -645,23 +709,21 @@ class WeakPtrImpl
 	}
 
 	template<typename U, bool IsObserver>
-	WeakPtrImpl& operator=(const WeakPtrImpl<U, Deleter, IsObserver>& other) noexcept
+	WeakPtrImpl& operator=(const WeakPtrImpl<U, IsObserver>& other) noexcept
 	{
 		static_assert(std::is_convertible_v<U*, T*>);
 		WeakPtrImpl(other).swap(*this);
 		return *this;
 	}
 
-	template<typename U>
-	WeakPtrImpl& operator=(const SharedPtr<U, Deleter>& other) noexcept
+	WeakPtrImpl& operator=(WeakPtrImpl&& other) noexcept
 	{
-		static_assert(std::is_convertible_v<U*, T*>);
-		WeakPtrImpl(other).swap(*this);
+		WeakPtrImpl(std::move(other)).swap(*this);
 		return *this;
 	}
 
 	template<typename U, bool IsObserver>
-	WeakPtrImpl& operator=(WeakPtrImpl<U, Deleter, IsObserver>&& other) noexcept
+	WeakPtrImpl& operator=(WeakPtrImpl<U, IsObserver>&& other) noexcept
 	{
 		static_assert(std::is_convertible_v<U*, T*>);
 		WeakPtrImpl(std::move(other)).swap(*this);
@@ -697,16 +759,16 @@ class WeakPtrImpl
 	 * Promotes the WeakPtr to a SharedPtr.
 	 * This is only available is IsObserver==false
 	 */
-	SharedPtr<T, Deleter> lock() const noexcept
+	SharedPtr<T> lock() const noexcept
 		requires(IsObserver == false)
 	{
 		if (use_count())
 		{
-			return SharedPtr<T, Deleter>(m_control.ctrl->obj());
+			return SharedPtr<T>(m_control.ctrl->obj());
 		}
 		else
 		{
-			return SharedPtr<T, Deleter>();
+			return SharedPtr<T>();
 		}
 	}
 
@@ -741,7 +803,7 @@ class WeakPtrImpl
   private:
 
 	template<typename U>
-	void acquireBlock(details::SharedPtrControlBlock<U, Deleter>* control) noexcept
+	void acquireBlock(details::SharedPtrControlBlock<U>* control) noexcept
 	{
 		static_assert(std::is_convertible_v<U*,T*>);
 		m_control.ctrl = reinterpret_cast<ControlBlock*>(control);
@@ -780,11 +842,11 @@ class WeakPtrImpl
 	} m_control;
 };
 
-template <typename T, typename Deleter = details::SharedPtrDefaultDeleter>
-using WeakPtr = WeakPtrImpl<T, Deleter, false>;
+template <typename T>
+using WeakPtr = WeakPtrImpl<T, false>;
 
-template <typename T, typename Deleter = details::SharedPtrDefaultDeleter>
-using ObserverPtr = WeakPtrImpl<T, Deleter, true>;
+template <typename T>
+using ObserverPtr = WeakPtrImpl<T, true>;
 
 /**
  * SharedRef<T> : non-nullable SharedPtr<T>
@@ -796,35 +858,24 @@ using ObserverPtr = WeakPtrImpl<T, Deleter, true>;
  *
  * This is intentionally a thin wrapper over SharedPtr<T>, so it shares the same
  * control block and ref-counting behavior, but expresses intent in the type.
+ *
+ * IMPORTANT IMPLEMENTATION DETAILS:
+ * - No move contructors/assignments are provided, since SharedRef must always be non-null.
  */
-template<typename T, typename Deleter = details::SharedPtrDefaultDeleter>
+template<typename T>
 class SharedRef
 {
   public:
 
-	using SharedPtrT = SharedPtr<T, Deleter>;
+	using SharedPtrT = SharedPtr<T>;
 
-	template<typename U, typename UDeleter>
+	template<typename U>
 	friend class SharedRef;
 
 	/*!
 	 * No default construction, since SharedRef must always be non-null.
 	 */
 	SharedRef() = delete;
-
-	template<typename U>
-	explicit SharedRef(const SharedPtr<U, Deleter>& other) noexcept
-		: m_ptr(other)
-	{
-		CZ_CHECK(m_ptr.get() != nullptr);
-	}
-
-	template<typename U>
-	explicit SharedRef(SharedPtr<U, Deleter>&& other) noexcept
-		: m_ptr(std::forward<SharedPtr<U, Deleter>>(other))
-	{
-		CZ_CHECK(m_ptr.get() != nullptr);
-	}
 
 	SharedRef(const SharedRef& other)
 		: m_ptr(other.m_ptr)
@@ -834,18 +885,8 @@ class SharedRef
 		CZ_CHECK(m_ptr.get() != nullptr);
 	}
 
-	SharedRef(SharedRef&& other)
-		: m_ptr(other.m_ptr)
-	{
-		// Note that we are NOT moving the other.m_ptr, since SharedRef must always be non-null.
-
-		// This is not strictly necessary, since other is a SharedRef and thus non-null, but just to be safe, we check again, incase there was a bug
-		// somewhere else
-		CZ_CHECK(m_ptr.get() != nullptr);
-	}
-
 	template<typename U>
-	SharedRef(const SharedRef<U, Deleter>& other)
+	SharedRef(const SharedRef<U>& other)
 		: m_ptr(other.m_ptr)
 	{
 		// This is not strictly necessary, since other is a SharedRef and thus non-null, but just to be safe, we check again, incase there was a bug
@@ -854,20 +895,23 @@ class SharedRef
 	}
 
 	template<typename U>
-	SharedRef(SharedRef<U, Deleter>&& other)
-		: m_ptr(other.m_ptr)
+	explicit SharedRef(const SharedPtr<U>& other) noexcept
+		: m_ptr(other)
 	{
-		// Note that we are NOT moving the other.m_ptr, since SharedRef must always be non-null.
+		CZ_CHECK(m_ptr.get() != nullptr);
+	}
 
-		// This is not strictly necessary, since other is a SharedRef and thus non-null, but just to be safe, we check again,
-		// incase there was a bug somewhere else
+	template<typename U>
+	explicit SharedRef(SharedPtr<U>&& other) noexcept
+		: m_ptr(std::move(other))
+	{
 		CZ_CHECK(m_ptr.get() != nullptr);
 	}
 
 	#if 0
 	/*! Assignment from convertible SharedPtr<U> */
 	template<typename U>
-	SharedRef& operator=(const SharedPtr<U, Deleter>& other) noexcept
+	SharedRef& operator=(const SharedPtr<U>& other) noexcept
 	{
 		CZ_CHECK(other.get() != nullptr);
 		m_ptr = other;
@@ -876,7 +920,7 @@ class SharedRef
 
 	/*! Assignment from convertible SharedPtr<U> rvalue */
 	template<typename U>
-	SharedRef& operator=(SharedPtr<U, Deleter>&& other) noexcept
+	SharedRef& operator=(SharedPtr<U>&& other) noexcept
 	{
 		CZ_CHECK(other.get() != nullptr);
 		m_ptr = std::move(other);
@@ -885,33 +929,16 @@ class SharedRef
 	#else
 	// Don't allow assignment from SharedPtr, so the user needs to be explicit when converting.
 	template<typename U>
-	SharedRef& operator=(const SharedPtr<U, Deleter>& other) noexcept = delete;
+	SharedRef& operator=(const SharedPtr<U>& other) noexcept = delete;
 	template<typename U>
-	SharedRef& operator=(SharedPtr<U, Deleter>&& other) noexcept = delete;
+	SharedRef& operator=(SharedPtr<U>&& other) noexcept = delete;
 	#endif
 
 	SharedRef& operator=(const SharedRef& other) noexcept = default;
 
 	template<typename U>
-	SharedRef& operator=(const SharedRef<U, Deleter>& other) noexcept
+	SharedRef& operator=(const SharedRef<U>& other) noexcept
 	{
-		CZ_CHECK(other.m_ptr.get() != nullptr);
-		m_ptr = other.m_ptr;
-		return *this;
-	}
-
-	/*! Move assignment */
-	SharedRef& operator=(SharedRef&& other) noexcept
-	{
-		CZ_CHECK(other.m_ptr.get() != nullptr);
-		m_ptr = other.m_ptr;
-		return *this;
-	}
-
-	template<typename U>
-	SharedRef& operator=(SharedRef<U, Deleter>&& other) noexcept
-	{
-		static_assert(std::is_convertible_v<U*, T*>);
 		CZ_CHECK(other.m_ptr.get() != nullptr);
 		m_ptr = other.m_ptr;
 		return *this;
@@ -986,7 +1013,7 @@ class SharedRef
  * BaseSharedPtrControlBlock::allocBlock, so that the control block is set up correctly.
  *
  */
-template <typename T, typename Deleter = details::SharedPtrDefaultDeleter>
+template <typename T>
 class EnableSharedFromThis
 {
   protected:
@@ -1002,10 +1029,10 @@ class EnableSharedFromThis
 	 * NOTE: Assumes the object was allocated via makeShared or proper allocation.
 	 * Using this on a stack-allocated or improperly allocated object will crash.
 	 */
-	SharedPtr<T, Deleter> sharedFromThis()
+	SharedPtr<T> sharedFromThis()
 	{
 		T* derivedThis = static_cast<T*>(this);
-		return SharedPtr<T, Deleter>(derivedThis);
+		return SharedPtr<T>(derivedThis);
 	}
 
 	/**
@@ -1014,11 +1041,11 @@ class EnableSharedFromThis
 	 * NOTE: Assumes the object was allocated via makeShared or proper allocation.
 	 * Using this on a stack-allocated or improperly allocated object will crash.
 	 */
-	SharedPtr<const T, Deleter> sharedFromThis() const
+	SharedPtr<const T> sharedFromThis() const
 	{
 		const T* derivedThis = static_cast<const T*>(this);
 		// Need to cast away const because SharedPtr constructor expects non-const
-		return SharedPtr<const T, Deleter>(const_cast<T*>(derivedThis));
+		return SharedPtr<const T>(const_cast<T*>(derivedThis));
 	}
 
 	/**
@@ -1026,9 +1053,9 @@ class EnableSharedFromThis
 	 *
 	 * Useful when you want to check if the object is still alive in async scenarios.
 	 */
-	WeakPtr<T, Deleter> weakFromThis()
+	WeakPtr<T> weakFromThis()
 	{
-		return WeakPtr<T, Deleter>(sharedFromThis());
+		return WeakPtr<T>(sharedFromThis());
 	}
 
 	/**
@@ -1036,9 +1063,9 @@ class EnableSharedFromThis
 	 *
 	 * Useful when you want to check if the object is still alive in async scenarios.
 	 */
-	WeakPtr<const T, Deleter> weakFromThis() const
+	WeakPtr<const T> weakFromThis() const
 	{
-		return WeakPtr<const T, Deleter>(sharedFromThis());
+		return WeakPtr<const T>(sharedFromThis());
 	}
 };
 
@@ -1046,11 +1073,15 @@ class EnableSharedFromThis
 // SharedPtr utilities
 //
 
+/**
+ * Constructs a SharedPtr<T> with the specified parameters.
+ * If uses `T::SharedPtrDeleter` as the deleter if it exists, otherwise uses the default deleter.
+ */
 template <typename T, typename... Args>
 SharedPtr<T> makeShared(Args&& ... args)
 {
 	static_assert(!std::is_abstract_v<T>, "Type is abstract.");
-	void* ptr = details::BaseSharedPtrControlBlock::allocBlock<T>();
+	void* ptr = details::allocSharedPtrBlock<T>();
 	return SharedPtr<T>(new(ptr) T(std::forward<Args>(args)...));
 }
 
@@ -1067,27 +1098,27 @@ SharedPtr<T> static_pointer_cast(SharedPtr<U>&& other) noexcept
 	return SharedPtr<T>(static_cast<T*>(other_.get()));
 }
 
-template <class T, class U, typename Deleter>
-bool operator==(const SharedPtr<T, Deleter>& left, const SharedPtr<U, Deleter>& right) noexcept
+template <class T, class U>
+bool operator==(const SharedPtr<T>& left, const SharedPtr<U>& right) noexcept
 {
 	return left.get() == right.get();
 }
 
-template <class T, typename Deleter>
-bool operator==(const SharedPtr<T, Deleter>& left, std::nullptr_t) noexcept
+template <class T>
+bool operator==(const SharedPtr<T>& left, std::nullptr_t) noexcept
 {
 	return left.get() == nullptr;
 }
 
-template <class T, typename Deleter>
-bool operator==(std::nullptr_t, const SharedPtr<T, Deleter>& right) noexcept
+template <class T>
+bool operator==(std::nullptr_t, const SharedPtr<T>& right) noexcept
 {
 	return nullptr == right.get();
 }
 
 //The <, <=, >, >=, and != operators are synthesized from operator<=> and operator== respectively.
-template<typename T1, typename T2, typename Deleter>
-std::strong_ordering operator<=>(const SharedPtr<T1, Deleter>& left, const SharedPtr<T2, Deleter>& right) noexcept
+template<typename T1, typename T2>
+std::strong_ordering operator<=>(const SharedPtr<T1>& left, const SharedPtr<T2>& right) noexcept
 {
 	return left.get() <=> right.get();
 }
@@ -1103,34 +1134,34 @@ SharedRef<T> makeSharedRef(Args&&... args)
 }
 
 // Casting helpers similar to SharedPtr versions
-template<class T, class U, typename Deleter>
-SharedRef<T, Deleter> static_pointer_cast(const SharedRef<U, Deleter>& other) noexcept
+template<class T, class U>
+SharedRef<T> static_pointer_cast(const SharedRef<U>& other) noexcept
 {
 	// other is guaranteed non-null, so resulting SharedPtr<T> is also non-null
-	SharedPtr<T, Deleter> casted = static_pointer_cast<T>(other.toSharedPtr());
+	SharedPtr<T> casted = static_pointer_cast<T>(other.toSharedPtr());
 	CZ_CHECK(casted.get() != nullptr);
-	return SharedRef<T, Deleter>(casted);
+	return SharedRef<T>(casted);
 }
 
-template<class T, class U, typename Deleter>
-SharedRef<T, Deleter> static_pointer_cast(SharedRef<U, Deleter>&& other) noexcept
+template<class T, class U>
+SharedRef<T> static_pointer_cast(SharedRef<U>&& other) noexcept
 {
-	SharedPtr<U, Deleter> tmp = other.toSharedPtr(); // copy, keep simple
-	SharedPtr<T, Deleter> casted = static_pointer_cast<T>(tmp);
+	SharedPtr<U> tmp = other.toSharedPtr(); // copy, keep it simple. We can't actually move, because SharedRef doesn't have move semantics.
+	SharedPtr<T> casted = static_pointer_cast<T>(tmp);
 	CZ_CHECK(casted.get() != nullptr);
-	return SharedRef<T, Deleter>(casted);
+	return SharedRef<T>(casted);
 }
 
 // Comparisons
 
-template <class T, class U, typename Deleter>
-bool operator==(const SharedRef<T, Deleter>& left, const SharedRef<U, Deleter>& right) noexcept
+template <class T, class U>
+bool operator==(const SharedRef<T>& left, const SharedRef<U>& right) noexcept
 {
 	return left.get() == right.get();
 }
 
-template<typename T1, typename T2, typename Deleter>
-std::strong_ordering operator<=>(const SharedRef<T1, Deleter>& left, const SharedRef<T2, Deleter>& right) noexcept
+template<typename T1, typename T2>
+std::strong_ordering operator<=>(const SharedRef<T1>& left, const SharedRef<T2>& right) noexcept
 {
 	return left.get() <=> right.get();
 }
@@ -1140,26 +1171,26 @@ std::strong_ordering operator<=>(const SharedRef<T1, Deleter>& left, const Share
 // Utilities to make it easier to use EnableSharedFromThis
 //
 
-template <typename T, typename Deleter = details::SharedPtrDefaultDeleter>
-SharedPtr<T, Deleter> toStrong(T* obj)
+template <typename T>
+SharedPtr<T> toStrong(T* obj)
 {
 	return static_pointer_cast<T>(obj->sharedFromThis());
 }
 
-template <typename T, typename Deleter = details::SharedPtrDefaultDeleter>
-SharedPtr<const T, Deleter> toStrong(const T* obj)
+template <typename T>
+SharedPtr<const T> toStrong(const T* obj)
 {
 	return static_pointer_cast<const T>(obj->sharedFromThis());
 }
 
-template <typename T, typename Deleter = details::SharedPtrDefaultDeleter>
-SharedPtr<T, Deleter> toStrong(T& obj)
+template <typename T>
+SharedPtr<T> toStrong(T& obj)
 {
 	return static_pointer_cast<T>(obj.sharedFromThis());
 }
 
-template <typename T, typename Deleter = details::SharedPtrDefaultDeleter>
-SharedPtr<const T, Deleter> toStrong(const T& obj)
+template <typename T>
+SharedPtr<const T> toStrong(const T& obj)
 {
 	return static_pointer_cast<const T>(obj.sharedFromThis());
 }
