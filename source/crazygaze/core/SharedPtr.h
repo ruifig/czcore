@@ -274,6 +274,13 @@ namespace details
 		#if CZ_SHAREDPTR_STACKTRACES
 		struct StackTraceData
 		{
+			~StackTraceData()
+			{
+				firstTrace = nullptr;
+
+				// If there are still any traces in the list, then we have a bug somewhere in this code.
+				CZ_CHECK(traceList.back() == nullptr);
+			}
 			DoublyLinkedList<SharedPtrTrace> traceList;
 			std::unique_ptr<SharedPtrTrace> firstTrace;
 		};
@@ -641,11 +648,15 @@ class SharedPtr
 		{
 			if (ctrl)
 			{
+				// This needs to be before decStrong.
+				// If it was after decStrong, it meant if the decStrong caused the control block to be destroyed, then destroying
+				// the trace after that would cause a use-after-free.
+				#if CZ_SHAREDPTR_STACKTRACES
+				trace = nullptr;
+				#endif
+
 				ctrl->decStrong();
 				ctrl = nullptr;
-#if CZ_SHAREDPTR_STACKTRACES
-				trace = nullptr;
-#endif
 			}
 		}
 	} m_control;
@@ -832,11 +843,15 @@ class WeakPtrImpl
 		{
 			if (ctrl)
 			{
+				// This needs to be before decStrong.
+				// If it was after decStrong, it meant if the decStrong caused the control block to be destroyed, then destroying
+				// the trace after that would cause a use-after-free.
+				#if CZ_SHAREDPTR_STACKTRACES
+				trace = nullptr;
+				#endif
+
 				ctrl->decWeak();
 				ctrl = nullptr;
-#if CZ_SHAREDPTR_STACKTRACES
-				trace = nullptr;
-#endif
 			}
 		}
 	} m_control;
