@@ -2,6 +2,33 @@
 
 #include "Common.h"
 #include "Logging.h"
+#include "ThreadingUtils.h"
+
+/**
+ *
+ * Custom shared_ptr implementation.
+ * It allows tweaking a few things:
+ * - Allows specifying if it's thread safe or not.
+ * - Allows capturing stack traces for debugging purposes.
+ *
+ * It doesn't provide exactly the same functionality as std::shared_ptr, and any object to be tracked
+ * needs to be allocated with makeShared. This is because the control block is ALWAYS allocated together with the object.
+ *
+ *
+ * Available classes:
+ * 
+ * - SharedPtr
+ *		Equivalent to std::shared_ptr.
+ * - WeakPtr
+ *		Equivalent to std::weak_ptr.
+ * - SharedRef
+ *		A non-nullable version of SharedPtr. Similar to std::shared_ptr but doesn't allow null values. This is handy for APIs that
+ *		want to enforce that the pointer is not null.
+ * - ObserverPtr
+ *		A special kind of WeakPtr that doesn't allow promoting to SharedPtr. The purpose is just to check if a pointer is still valid.
+ *		It has very little use, and it's unsafe if used with multi-threading.
+ * 
+ */
 
 
 /*
@@ -137,7 +164,52 @@ namespace details
 		false;
 #endif
 
+
 #if CZ_SHAREDPTR_STACKTRACES
+
+	/**
+	 * Doubly linked list to keep track of stacktraces
+	 */
+	class TraceList
+	{
+	  public:
+
+		void add(struct SharedPtrTrace* trace)
+		{
+			m_lock.lock();
+			m_list.pushBack(trace);
+			m_lock.unlock();
+		}
+
+		void remove(struct SharedPtrTrace* trace)
+		{
+			m_lock.lock();
+			m_list.remove(trace);
+			m_lock.unlock();
+		}
+
+		bool isEmpty()
+		{
+			m_lock.lock();
+			bool res = m_list.empty();
+			m_lock.unlock();
+			return res;
+		}
+
+		template<typename F>
+		void visitAll(F&& f)
+		{
+			m_lock.lock();
+			for(const struct SharedPtrTrace* ele : m_list)
+				f(ele);
+			m_lock.unlock();
+		}
+
+	  private:
+		DoublyLinkedList<struct SharedPtrTrace> m_list;
+		SpinLock m_lock;
+	};
+
 	struct SharedPtrTrace : public DoublyLinked<SharedPtrTrace>
 	{
 		enum class Type
@@ -147,7 +219,7 @@ namespace details
 			WeakRef
 		};
 
-		explicit SharedPtrTrace(Type type, DoublyLinkedList<SharedPtrTrace>* outer)
+		explicit SharedPtrTrace(Type type, TraceList* outer)
 			: type(type)
 			, outer(outer)
 		{
@@ -156,7 +228,7 @@ namespace details
 				timestamp = std::chrono::high_resolution_clock::now();
 				frame = gFrameCounter.load();
 				trace = std::stacktrace::current();
-				outer->pushBack(this);
+				outer->add(this);
 			}
 		}
 		
@@ -170,27 +242,120 @@ namespace details
 		std::chrono::high_resolution_clock::time_point timestamp;
 		uint64_t frame;
 		std::stacktrace trace;
-		DoublyLinkedList<SharedPtrTrace>* outer = nullptr;
+		TraceList* outer = nullptr;
 	};
 
 #endif
 
+
+	/**
+	 * RefCounter implements the following interface:
+	 * 
+	 * void inc()
+	 *		Increments the value
+	 * uint32_t dec()
+	 *		Decrements and returns the new value
+	 * uint32_t count()
+	 *		Returns the current value
+	 * bool inc_nz()
+	 *		Increments the value if the current value is not zero and returns true.
+	 *		It returns false if the current value is zero.
+	 */
 	template<typename bool>
-	class ControlBlockCounters
+	class RefCounter
 	{
 	};
 
 	template<>
-	class ControlBlockCounters<false>
+	class RefCounter<false>
 	{
+	  private:
+		uint32_t m_value;
+	  public:
+
+		RefCounter(uint32_t value) noexcept
+			: m_value(value)
+		{
+		}
+
+		[[no_discard]] uint32_t count() const noexcept
+		{
+			return m_value;
+		}
+	
+		void inc() noexcept
+		{
+			++m_value;
+		}
+
+		[[no_discard]] uint32_t dec() noexcept
+		{
+			assert(m_value > 0);
+			return --m_value;
+		}
+
+		bool inc_nz() noexcept
+		{
+			if (m_value == 0)
+				return false;
+			else
+			{
+				++m_value;
+				return true;
+			}
+		}
 	};
 
+	/**
+	 * Some useful links to understand this
+	 * - https://www.boost.org/doc/libs/1_57_0/doc/html/atomic/usage_examples.html#boost_atomic.usage_examples.example_reference_counters
+	 */
 	template<>
-	class ControlBlockCounters<true>
+	class RefCounter<true>
 	{
-		
-	};
+	  private:
+		mutable std::atomic<uint32_t> m_value;
 
+	  public:
+
+		RefCounter(uint32_t value) noexcept
+			: m_value(value)
+		{
+		}
+
+		uint32_t count() const
+		{
+			return m_value.load(std::memory_order_relaxed);
+		}
+
+		void inc() noexcept
+		{
+			m_value.fetch_add(1, std::memory_order_relaxed);
+		}
+
+		uint32_t dec()
+		{
+			// fetch_sub returns the previous value, so we do -1, so that when we call this and value is 1, we return 0.
+			// It's less confusing that way. As-in. if "if dec()==0 then do something"
+			return m_value.fetch_sub(1, std::memory_order_acq_rel) - 1;
+		}
+
+		bool inc_nz()
+		{
+			uint32_t n = count();
+
+			while(n != 0)
+			{
+				if (m_value.compare_exchange_weak(n, n + 1, std::memory_order_acquire, std::memory_order_relaxed))
+				{
+					// We managed to increment the counter from a non-zero value, which means from this point on no other threads will cause it to go to zero.
+					return true; 
+				}
+			}
+
+			return false;
+		}
+	};
 
 	template<bool MT>
 	class BaseSharedPtrControlBlock
@@ -207,40 +372,11 @@ namespace details
 		virtual ~BaseSharedPtrControlBlock() = default;
 
 		template<typename T>
-		T* toObject()
+		T* toObject() noexcept
 		{
 			return reinterpret_cast<T*>(this+1);
 		}
 
-		void incStrong()
-		{
-			++strong;
-		}
-
-		void incWeak()
-		{
-			++weak;
-		}
-
-		void decWeak()
-		{
-			assert(weak > 0);
-			--weak;
-			if (weak == 0 && strong == 0)
-			{
-				free(this);
-			}
-		}
-
-		unsigned int strongRefs() const
-		{
-			return strong;
-		}
-
-		unsigned int weakRefs() const
-		{
-			return weak;
-		}
 
 		virtual void deleteObj() = 0;
 
@@ -263,9 +399,10 @@ namespace details
 		SharedPtrTraces getTraces()
 		{
 			SharedPtrTraces res;
+
 			if (traceData)
 			{
-				for(const SharedPtrTrace* ele : traceData->traceList)
+				traceData->traceList.visitAll([&res](const SharedPtrTrace* ele)
 				{
 					SharedPtrTraces::Entry entry{ele->timestamp, ele->frame, ele->trace};
 					if (ele->type == SharedPtrTrace::Type::Creation)
@@ -278,8 +415,9 @@ namespace details
 					{
 						CZ_CHECK(false);
 					}
-				}
+				});
 			}
+
 			return res;
 		}
 		#endif
@@ -297,9 +435,9 @@ namespace details
 				firstTrace = nullptr;
 
 				// If there are still any traces in the list, then we have a bug somewhere in this code.
-				CZ_CHECK(traceList.back() == nullptr);
+				CZ_CHECK(traceList.isEmpty());
 			}
-			DoublyLinkedList<SharedPtrTrace> traceList;
+			TraceList traceList;
 			std::unique_ptr<SharedPtrTrace> firstTrace;
 		};
 		// Intentionally putting this in a unique_ptr, so it's out of the same cache line, and it's not loaded every time
@@ -307,8 +445,9 @@ namespace details
 		std::unique_ptr<StackTraceData> traceData;
 		#endif
 
-		unsigned int weak = 0;
-		unsigned int strong = 0;
+		RefCounter<MT> strong = 0;
+		// weak is initialized to 1, because it helps resolve a race condition when both weak and strong reach 0
+		RefCounter<MT> weak = 1;
 
 #if CZ_SHAREDPTR_CLEAR_MEM
 		// Size of the object, in bytes.
@@ -353,26 +492,43 @@ namespace details
 
 		T* obj()
 		{
-			if (this->strong)
-			{
-				return this->toObject<T>();
-			}
-			else
-			{
-				return nullptr;
-			}
+			return this->toObject<T>();
+		}
+
+		uint32_t strongRefs() const noexcept
+		{
+			return this->strong.count();
+		}
+
+		uint32_t weakRefs() const noexcept
+		{
+			return this->weak.count();
+		}
+
+		void incStrong() noexcept
+		{
+			this->strong.inc();
+		}
+
+		void incWeak() noexcept
+		{
+			this->weak.inc();
 		}
 
 		void decStrong()
 		{
-			assert(this->strong > 0);
-			if (this->strong == 1)
+			assert(this->strong.count() > 0);
+
+			if (this->strong.dec() == 0)
 			{
 				this->deleteObj();
+				decWeak();
 			}
+		}
 
-			--this->strong;
-			if (this->strong == 0 && this->weak == 0)
+		void decWeak()
+		{
+			if (this->weak.dec() == 0)
 			{
 				// We need to explicitly call the virtual destructor
 				this->~SharedPtrControlBlock();
@@ -380,6 +536,10 @@ namespace details
 			}
 		}
 
+		bool lockStrong()
+		{
+			return this->strong.inc_nz();
+		}
 	};
 
 	template <typename T, bool MT, typename Deleter = SharedPtrDefaultDeleter>
@@ -421,7 +581,7 @@ namespace details
 		#if CZ_SHAREDPTR_STACKTRACES
 		if constexpr(details::enable_sharedptr_stacktraces_v<T>)
 		{
-			control->traceData = std::make_unique<BaseSharedPtrControlBlock::StackTraceData>();
+			control->traceData = std::make_unique<typename BaseSharedPtrControlBlock<MT>::StackTraceData>();
 			control->traceData->firstTrace = control->createStackTrace(SharedPtrTrace::Type::Creation);
 		}
 		#endif
@@ -500,7 +660,7 @@ class SharedPtr
 		{
 			static_assert(std::is_convertible_v<U*, T*>);
 			const void* rawPtr = (reinterpret_cast<const uint8_t*>(static_cast<T*>(ptr)) - sizeof(details::BaseSharedPtrControlBlock<MT>));
-			acquireBlock(reinterpret_cast<ControlBlock*>(const_cast<void*>(rawPtr)));
+			acquireBlock<true>(reinterpret_cast<ControlBlock*>(const_cast<void*>(rawPtr)));
 		}
 	}
 
@@ -511,14 +671,14 @@ class SharedPtr
 
 	SharedPtr(const SharedPtr& other) noexcept
 	{
-		acquireBlock(other.m_control.ctrl);
+		acquireBlock<true>(other.m_control.ctrl);
 	}
 
 	template<typename U>
 	SharedPtr(const SharedPtr<U, MT>& other) noexcept
 	{
 		static_assert(std::is_convertible_v<U*, T*>);
-		acquireBlock(other.m_control.ctrl);
+		acquireBlock<true>(other.m_control.ctrl);
 	}
 
 	SharedPtr(SharedPtr&& other) noexcept
@@ -590,12 +750,12 @@ class SharedPtr
 		return m_control.ctrl ? true : false;
 	}
 
-	unsigned int use_count() const noexcept
+	uint32_t use_count() const noexcept
 	{
 		return m_control.ctrl ? m_control.ctrl->strongRefs() : 0;
 	}
 
-	unsigned int weak_use_count() const noexcept
+	uint32_t weak_use_count() const noexcept
 	{
 		return m_control.ctrl ? m_control.ctrl->weakRefs() : 0;
 	}
@@ -634,7 +794,13 @@ class SharedPtr
 
   private:
 
-	template<typename U>
+	// This is private, since only WeakPtr::lock can use it
+	SharedPtr(details::SharedPtrControlBlock<T, MT>* control) noexcept
+	{
+		acquireBlock<false>(control);
+	}
+
+	template<bool doInc, typename U>
 	void acquireBlock(details::SharedPtrControlBlock<U, MT>* control) noexcept
 	{
 		static_assert(std::is_convertible_v<U*,T*>);
@@ -644,7 +810,9 @@ class SharedPtr
 #endif
 		if (m_control.ctrl)
 		{
-			m_control.ctrl->incStrong();
+			if constexpr(doInc)
+				m_control.ctrl->incStrong();
+
 #if CZ_SHAREDPTR_STACKTRACES
 			m_control.trace = m_control.ctrl->createStackTrace(details::SharedPtrTrace::Type::StrongRef);
 #endif
@@ -767,12 +935,12 @@ class WeakPtrImpl
 		std::swap(m_control, other.m_control);
 	}
 
-	unsigned int use_count() const noexcept
+	uint32_t use_count() const noexcept
 	{
 		return m_control.ctrl ? m_control.ctrl->strongRefs() : 0;
 	}
 
-	unsigned int weak_use_count() const noexcept
+	uint32_t weak_use_count() const noexcept
 	{
 		return m_control.ctrl ? m_control.ctrl->weakRefs() : 0;
 	}
@@ -784,26 +952,31 @@ class WeakPtrImpl
 
 	/**
 	 * Promotes the WeakPtr to a SharedPtr.
-	 * This is only available is IsObserver==false
+	 * This is only available if IsObserver==false
 	 */
 	SharedPtr<T, MT> lock() const noexcept
 		requires(IsObserver == false)
 	{
-		if (use_count())
+		if (!m_control.ctrl)
+			return {};
+
+		if (m_control.ctrl->lockStrong())
 		{
-			return SharedPtr<T, MT>(m_control.ctrl->obj());
+			return SharedPtr<T, MT>(m_control.ctrl);
 		}
 		else
 		{
-			return SharedPtr<T, MT>();
+			return {};
 		}
 	}
 
 	/**
-	 * Gets the raw pointer. This is only available for ObserverPtr.
+	 * Gets the raw pointer. This is only available for ObserverPtr, and if MT==false.
+	 * The reason it is not available for MT==true, is because in a multi-threaded context, the object could be destroyed right
+	 * after this function returns, so the raw pointer would likely be a dangling pointer.
 	 */
-	template<bool B = IsObserver, typename = std::enable_if_t<B>> 
 	T* tryGet() noexcept
+		requires(IsObserver == true && MT == false)
 	{
 		if (use_count())
 		{
@@ -994,7 +1167,7 @@ class SharedRef
 
 	// Expose SharedPtr-like utilities where useful
 
-	unsigned int use_count() const noexcept
+	uint32_t use_count() const noexcept
 	{
 		return m_ptr.use_count();
 	}
