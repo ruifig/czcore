@@ -3,6 +3,7 @@
 #include "crazygaze/core/CorePch.h" 
 
 #include "crazygaze/core/SharedPtr.h"
+#include "crazygaze/core/LocalSharedPtr.h"
 #include "crazygaze/core/FNVHash.h"
 #include "crazygaze/core/VSOVector.h"
 #include "crazygaze/core/TaggedPtr.h"

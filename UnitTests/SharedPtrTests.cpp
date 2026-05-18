@@ -9,7 +9,13 @@ struct WrongBase
 };
 
 #define THREADSAFE 1
-struct Base : EnableSharedFromThis<Base, THREADSAFE>
+
+struct Base :
+#if THREADSAFE
+	EnableSharedFromThis<Base>
+#else
+	EnableLocalSharedFromThis<Base>
+#endif
 {
 	static constexpr bool enable_sharedptr_stacktraces = true;
 
@@ -53,19 +59,31 @@ Foo* nulledFoo = nullptr;
 } // anonymous namespace
 
 
-constexpr bool ThreadSafe = THREADSAFE;
+#if THREADSAFE
+template<typename T>
+using Ptr = cz::SharedPtr<T>;
 
 template<typename T>
-using Ptr = cz::SharedPtr<T, ThreadSafe>;
+using WPtr = cz::WeakPtr<T>;
 
 template<typename T>
-using WPtr = cz::WeakPtr<T, ThreadSafe>;
+using OPtr = cz::ObserverPtr<T>;
 
 template<typename T>
-using OPtr = cz::ObserverPtr<T, ThreadSafe>;
+using Ref = cz::SharedRef<T>;
+#else
+template<typename T>
+using Ptr = cz::LocalSharedPtr<T>;
 
 template<typename T>
-using Ref = cz::SharedRef<T, ThreadSafe>;
+using WPtr = cz::LocalWeakPtr<T>;
+
+template<typename T>
+using OPtr = cz::LocalObserverPtr<T>;
+
+template<typename T>
+using Ref = cz::LocalSharedRef<T>;
+#endif
 
 //using namespace unittests_details;
 
@@ -85,7 +103,7 @@ struct SharedPtrTests
 		}
 		else
 		{
-			return makeShared<T, ThreadSafe>(std::forward<Args>(args)...);
+			return details::basicMakeShared<T, THREADSAFE>(std::forward<Args>(args)...);
 		}
 	}
 
@@ -98,7 +116,7 @@ struct SharedPtrTests
 		}
 		else
 		{
-			return new(details::allocSharedPtrBlock<T, ThreadSafe>()) T(std::forward<Args>(args)...);
+			return new(details::allocSharedPtrBlock<T, THREADSAFE>()) T(std::forward<Args>(args)...);
 		}
 	}
 
@@ -745,7 +763,7 @@ TEST_CASE("Custom Deleter", "[SmartPointers]")
 	CHECK(MyDeleter::deletedCount == 0);
 
 	{
-		Ptr<Foo2> p1 = makeShared<Foo2, ThreadSafe>();
+		Ptr<Foo2> p1 = cz::details::basicMakeShared<Foo2, THREADSAFE>();
 	}
 
 	CHECK(MyDeleter::deletedCount == 1);
@@ -761,7 +779,7 @@ TEST_CASE("SharedPtr", "[SmartPointers]")
 #if CZ_SHAREDPTR_CLEAR_MEM
 TEST_CASE("Memory clear", "[SmartPointers]")
 {
-	auto bar = makeShared<Bar, ThreadSafe>();
+	auto bar = cz::details::basicMakeShared<Bar, THREADSAFE>();
 	WPtr<Bar> wbar = bar;
 	Bar* ptr = bar.get();
 
@@ -784,20 +802,20 @@ TEST_CASE("SharedRef", "[SmartPointers]")
 {
 	SECTION("makeSharedRef")
 	{
-		Ref<Foo> ref = makeSharedRef<Foo, ThreadSafe>();
+		Ref<Foo> ref = cz::details::basicMakeSharedRef<Foo, THREADSAFE>();
 		CHECK(ref.use_count() == 1);
 	}
 
 	SECTION("Constructing from SharedPtr")
 	{
 		{
-			Ptr<Foo> ptr = makeShared<Foo, ThreadSafe>();
+			Ptr<Foo> ptr = cz::details::basicMakeShared<Foo, THREADSAFE>();
 			Ref<Foo> ref(ptr);
 			CHECK(ptr.use_count() == 2);
 		}
 
 		{
-			Ptr<Foo> ptr = makeShared<Foo, ThreadSafe>();
+			Ptr<Foo> ptr = cz::details::basicMakeShared<Foo, THREADSAFE>();
 			Ref<Foo> ref(std::move(ptr));
 			CHECK(ptr.get() == nullptr);
 			CHECK(ref.use_count() == 1);
@@ -805,13 +823,13 @@ TEST_CASE("SharedRef", "[SmartPointers]")
 
 		// Try converting between base and derived
 		{
-			Ptr<Foo> ptr = makeShared<Foo, ThreadSafe>();
+			Ptr<Foo> ptr = cz::details::basicMakeShared<Foo, THREADSAFE>();
 			Ref<Base> ref(ptr);
 			CHECK(ptr.use_count() == 2);
 		}
 
 		{
-			Ptr<Foo> ptr = makeShared<Foo, ThreadSafe>();
+			Ptr<Foo> ptr = cz::details::basicMakeShared<Foo, THREADSAFE>();
 			Ref<Base> ref(std::move(ptr));
 			CHECK(ptr.get() == nullptr);
 			CHECK(ref.use_count() == 1);
@@ -821,13 +839,13 @@ TEST_CASE("SharedRef", "[SmartPointers]")
 	SECTION("Constructing from SharedRef")
 	{
 		{
-			Ref<Foo> ref1 = makeSharedRef<Foo, ThreadSafe>();
+			Ref<Foo> ref1 = cz::details::basicMakeSharedRef<Foo, THREADSAFE>();
 			Ref<Foo> ref2(ref1);
 			CHECK(ref2.use_count() == 2);
 		}
 
 		{
-			Ref<Foo> ref1 = makeSharedRef<Foo, ThreadSafe>();
+			Ref<Foo> ref1 = cz::details::basicMakeSharedRef<Foo, THREADSAFE>();
 			Ref<Foo> ref2(std::move(ref1));
 			// Moving a SharedRef doesn't null the source
 			CHECK(ref1.toSharedPtr().get() != nullptr);
@@ -836,12 +854,13 @@ TEST_CASE("SharedRef", "[SmartPointers]")
 
 		// Try converting between base and derived
 		{
-			Ref<Foo> ref1 = makeSharedRef<Foo, ThreadSafe>();
+			Ref<Foo> ref1 = cz::details::basicMakeSharedRef<Foo, THREADSAFE>();
 			Ref<Base> ref2(ref1);
 			CHECK(ref2.use_count() == 2);
 		}
+
 		{
-			Ref<Foo> ref1 = makeSharedRef<Foo, ThreadSafe>();
+			Ref<Foo> ref1 = cz::details::basicMakeSharedRef<Foo, THREADSAFE>();
 			Ref<Base> ref2(std::move(ref1));
 			// Moving a SharedRef doesn't null the source
 			CHECK(ref1.toSharedPtr().get() != nullptr);
@@ -916,8 +935,8 @@ TEST_CASE("SharedRef", "[SmartPointers]")
 	SECTION("Assignment operator from SharedRef")
 	{
 		{
-			Ref<Foo> ref1 = makeSharedRef<Foo, ThreadSafe>();
-			Ref<Foo> ref2 = makeSharedRef<Foo, ThreadSafe>();
+			Ref<Foo> ref1 = cz::details::basicMakeSharedRef<Foo, THREADSAFE>();
+			Ref<Foo> ref2 = cz::details::basicMakeSharedRef<Foo, THREADSAFE>();
 
 			WPtr<Foo> weak1 = ref1.toSharedPtr();
 			ref1 = ref2;
@@ -927,8 +946,8 @@ TEST_CASE("SharedRef", "[SmartPointers]")
 		}
 		// Try converting between base and derived
 		{
-			Ref<Base> ref1 = makeSharedRef<Foo, ThreadSafe>();
-			Ref<Foo> ref2  = makeSharedRef<Foo, ThreadSafe>();
+			Ref<Base> ref1 = cz::details::basicMakeSharedRef<Foo, THREADSAFE>();
+			Ref<Foo> ref2  = cz::details::basicMakeSharedRef<Foo, THREADSAFE>();
 			WPtr<Base> weak1 = ref1.toSharedPtr();
 			ref1 = ref2;
 			CHECK(weak1.expired() == true);
@@ -940,8 +959,8 @@ TEST_CASE("SharedRef", "[SmartPointers]")
 		// rvalue
 		//
 		{
-			Ref<Foo> ref1 = makeSharedRef<Foo, ThreadSafe>();
-			Ref<Foo> ref2 = makeSharedRef<Foo, ThreadSafe>();
+			Ref<Foo> ref1 = cz::details::basicMakeSharedRef<Foo, THREADSAFE>();
+			Ref<Foo> ref2 = cz::details::basicMakeSharedRef<Foo, THREADSAFE>();
 			WPtr<Foo> weak1 = ref1.toSharedPtr();
 			ref1 = std::move(ref2);
 			CHECK(weak1.expired() == true);
@@ -950,8 +969,8 @@ TEST_CASE("SharedRef", "[SmartPointers]")
 		}
 		// Try converting between base and derived
 		{
-			Ref<Base> ref1 = makeSharedRef<Foo, ThreadSafe>();
-			Ref<Foo> ref2  = makeSharedRef<Foo, ThreadSafe>();
+			Ref<Base> ref1 = cz::details::basicMakeSharedRef<Foo, THREADSAFE>();
+			Ref<Foo> ref2  = cz::details::basicMakeSharedRef<Foo, THREADSAFE>();
 			WPtr<Base> weak1 = ref1.toSharedPtr();
 			ref1 = std::move(ref2);
 			CHECK(weak1.expired() == true);
@@ -965,14 +984,14 @@ TEST_CASE("SharedRef", "[SmartPointers]")
 	{
 		// Implicit conversion to SharedPtr
 		{
-			Ref<Foo> ref = makeSharedRef<Foo, ThreadSafe>();
+			Ref<Foo> ref = cz::details::basicMakeSharedRef<Foo, THREADSAFE>();
 			CHECK(ref.use_count() == 1);
 			Ptr<Foo> ptr = ref;
 			CHECK(ref.use_count() == 2);
 			CHECK(ptr.use_count() == 2);
 		}
 		{
-			Ref<Foo> ref = makeSharedRef<Foo, ThreadSafe>();
+			Ref<Foo> ref = cz::details::basicMakeSharedRef<Foo, THREADSAFE>();
 			CHECK(ref.use_count() == 1);
 			Ptr<Foo> ptr = ref.toSharedPtr();
 			CHECK(ref.use_count() == 2);
@@ -981,9 +1000,9 @@ TEST_CASE("SharedRef", "[SmartPointers]")
 
 		// Ptr to SharedRef conversion needs to be explicit.
 		{
-			Ptr<Foo> ptr = makeShared<Foo, ThreadSafe>();
+			Ptr<Foo> ptr = cz::details::basicMakeShared<Foo, THREADSAFE>();
 			CHECK(ptr.use_count() == 1);
-			Ref<Foo> ref = makeSharedRef<Foo, ThreadSafe>();
+			Ref<Foo> ref = cz::details::basicMakeSharedRef<Foo, THREADSAFE>();
 			ref = ptr.toSharedRef();
 			CHECK(ptr.use_count() == 2);
 			CHECK(ref.use_count() == 2);
@@ -994,7 +1013,7 @@ TEST_CASE("SharedRef", "[SmartPointers]")
 
 TEST_CASE("ObserverPtr", "[SmartPointers]")
 {
-	Ptr<Foo> foo = makeShared<Foo, ThreadSafe>();
+	Ptr<Foo> foo = cz::details::basicMakeShared<Foo, THREADSAFE>();
 	WPtr<Foo> w1 = foo;
 	OPtr<Foo> o1(w1);
 
@@ -1009,8 +1028,9 @@ TEST_CASE("ObserverPtr", "[SmartPointers]")
 TEST_CASE("EnableSharedFromThis", "[SmartPointers]")
 {
 	CHECK(Base::alive == 0);
-	Ptr<Foo> foo = makeShared<Foo, ThreadSafe>();
+	Ptr<Foo> foo = cz::details::basicMakeShared<Foo, THREADSAFE>();
 	WPtr<Foo> wfoo = foo;
+	WPtr<Foo> wfoo2;
 	CHECK(Base::alive == 1);
 	CHECK(foo.use_count() == 1);
 	CHECK(foo.weak_use_count() == 2);

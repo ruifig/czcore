@@ -2,6 +2,8 @@
 set(ALL_FILES
 	"crazygaze/core/czcore.natvis"
 	
+	"crazygaze/core/details/BasicSharedPtr.h"
+	"crazygaze/core/details/SmartPtrsHelper.h"
 	"crazygaze/core/Algorithm.h"
 	"crazygaze/core/AsyncCommandQueue.cpp"
 	"crazygaze/core/AsyncCommandQueue.h"
@@ -18,6 +20,7 @@ set(ALL_FILES
 	"crazygaze/core/IniFile.cpp"
 	"crazygaze/core/IniFile.h"
 	"crazygaze/core/LinkedList.h"
+	"crazygaze/core/LocalSharedPtr.h"
 	"crazygaze/core/Logging.cpp"
 	"crazygaze/core/Logging.h"
 	"crazygaze/core/LogOutputs.cpp"
