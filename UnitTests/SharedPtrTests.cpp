@@ -8,8 +8,11 @@ struct WrongBase
 {
 };
 
-struct Base
+#define THREADSAFE 1
+struct Base : EnableSharedFromThis<Base, THREADSAFE>
 {
+	static constexpr bool enable_sharedptr_stacktraces = true;
+
 	Base()
 	{
 		alive++;
@@ -50,7 +53,7 @@ Foo* nulledFoo = nullptr;
 } // anonymous namespace
 
 
-constexpr bool ThreadSafe = true;
+constexpr bool ThreadSafe = THREADSAFE;
 
 template<typename T>
 using Ptr = cz::SharedPtr<T, ThreadSafe>;
@@ -734,6 +737,11 @@ namespace
 
 TEST_CASE("Custom Deleter", "[SmartPointers]")
 {
+	auto ff = std::make_shared<Foo>();
+	std::weak_ptr<Foo> wff = ff;
+	ff = nullptr;
+
+
 	CHECK(MyDeleter::deletedCount == 0);
 
 	{
@@ -992,5 +1000,36 @@ TEST_CASE("ObserverPtr", "[SmartPointers]")
 
 	CHECK(w1.use_count() == 1);
 	CHECK(w1.lock().get() != nullptr);
-	CHECK(o1.tryGet() != nullptr);
+
+	#if THREADSAFE == 0
+		CHECK(o1.tryGet() != nullptr);
+	#endif
 }
+
+TEST_CASE("EnableSharedFromThis", "[SmartPointers]")
+{
+	CHECK(Base::alive == 0);
+	Ptr<Foo> foo = makeShared<Foo, ThreadSafe>();
+	WPtr<Foo> wfoo = foo;
+	CHECK(Base::alive == 1);
+	CHECK(foo.use_count() == 1);
+	CHECK(foo.weak_use_count() == 2);
+
+	Foo* raw = foo.get();
+
+	Ptr<Foo> foo2 = toStrong<Foo>(raw);
+	CHECK(wfoo.use_count() == 2);
+	CHECK(wfoo.weak_use_count() == 2);
+
+	foo = nullptr;
+	CHECK(wfoo.use_count() == 1);
+	CHECK(wfoo.weak_use_count() == 2);
+	CHECK(Base::alive == 1);
+
+	foo2 = nullptr;
+	CHECK(wfoo.weak_use_count() == 1);
+	CHECK(Base::alive == 0);
+	wfoo.reset();
+
+}
+

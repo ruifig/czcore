@@ -261,7 +261,7 @@ namespace details
 	 *		Increments the value if the current value is not zero and returns true.
 	 *		It returns false if the current value is zero.
 	 */
-	template<typename bool>
+	template<bool ThreadSafe>
 	class RefCounter
 	{
 	};
@@ -278,7 +278,7 @@ namespace details
 		{
 		}
 
-		[[no_discard]] uint32_t count() const noexcept
+		[[nodiscard]] uint32_t count() const noexcept
 		{
 			return m_value;
 		}
@@ -288,7 +288,7 @@ namespace details
 			++m_value;
 		}
 
-		[[no_discard]] uint32_t dec() noexcept
+		[[nodiscard]] uint32_t dec() noexcept
 		{
 			assert(m_value > 0);
 			return --m_value;
@@ -866,8 +866,8 @@ class WeakPtrImpl
 		acquireBlock(other.m_control.ctrl);
 	}
 
-	template<typename U, bool IsObserver>
-	WeakPtrImpl(const WeakPtrImpl<U, MT, IsObserver>& other) noexcept
+	template<typename U, bool OtherIsObserver>
+	WeakPtrImpl(const WeakPtrImpl<U, MT, OtherIsObserver>& other) noexcept
 	{
 		static_assert(std::is_convertible_v<U*, T*>);
 		acquireBlock(other.m_control.ctrl);
@@ -885,8 +885,8 @@ class WeakPtrImpl
 		std::swap(m_control, other.m_control);
 	}
 
-	template<typename U, bool IsObserver>
-	WeakPtrImpl(WeakPtrImpl<U, MT, IsObserver>&& other) noexcept
+	template<typename U, bool OtherIsObserver>
+	WeakPtrImpl(WeakPtrImpl<U, MT, OtherIsObserver>&& other) noexcept
 	{
 		static_assert(std::is_convertible_v<U*, T*>);
 		std::swap(m_control, reinterpret_cast<ControlHolder&>(other.m_control));
@@ -903,8 +903,8 @@ class WeakPtrImpl
 		return *this;
 	}
 
-	template<typename U, bool IsObserver>
-	WeakPtrImpl& operator=(const WeakPtrImpl<U, MT, IsObserver>& other) noexcept
+	template<typename U, bool OtherIsObserver>
+	WeakPtrImpl& operator=(const WeakPtrImpl<U, MT, OtherIsObserver>& other) noexcept
 	{
 		static_assert(std::is_convertible_v<U*, T*>);
 		WeakPtrImpl(other).swap(*this);
@@ -917,8 +917,8 @@ class WeakPtrImpl
 		return *this;
 	}
 
-	template<typename U, bool IsObserver>
-	WeakPtrImpl& operator=(WeakPtrImpl<U, MT, IsObserver>&& other) noexcept
+	template<typename U, bool OtherIsObserver>
+	WeakPtrImpl& operator=(WeakPtrImpl<U, MT, OtherIsObserver>&& other) noexcept
 	{
 		static_assert(std::is_convertible_v<U*, T*>);
 		WeakPtrImpl(std::move(other)).swap(*this);
@@ -1239,7 +1239,7 @@ class EnableSharedFromThis
 	SharedPtr<T, MT> sharedFromThis()
 	{
 		T* derivedThis = static_cast<T*>(this);
-		return SharedPtr<T>(derivedThis);
+		return SharedPtr<T, MT>(derivedThis);
 	}
 
 	/**
@@ -1252,7 +1252,7 @@ class EnableSharedFromThis
 	{
 		const T* derivedThis = static_cast<const T*>(this);
 		// Need to cast away const because SharedPtr constructor expects non-const
-		return SharedPtr<const T>(const_cast<T*>(derivedThis));
+		return SharedPtr<const T, MT>(const_cast<T*>(derivedThis));
 	}
 
 	/**
@@ -1262,7 +1262,7 @@ class EnableSharedFromThis
 	 */
 	WeakPtr<T, MT> weakFromThis()
 	{
-		return WeakPtr<T>(sharedFromThis());
+		return WeakPtr<T, MT>(sharedFromThis());
 	}
 
 	/**
@@ -1272,7 +1272,7 @@ class EnableSharedFromThis
 	 */
 	WeakPtr<const T, MT> weakFromThis() const
 	{
-		return WeakPtr<const T>(sharedFromThis());
+		return WeakPtr<const T, MT>(sharedFromThis());
 	}
 };
 
@@ -1292,13 +1292,13 @@ SharedPtr<T, MT> makeShared(Args&& ... args)
 	return SharedPtr<T, MT>(new(ptr) T(std::forward<Args>(args)...));
 }
 
-template<class T, class U, bool MT>
+template<class T, bool MT, class U>
 SharedPtr<T, MT> static_pointer_cast(const SharedPtr<U, MT>& other) noexcept
 {
 	return SharedPtr<T, MT>(static_cast<T*>(other.get()));
 }
 
-template<class T, class U, bool MT>
+template<class T, bool MT, class U>
 SharedPtr<T, MT> static_pointer_cast(SharedPtr<U, MT>&& other) noexcept
 {
 	SharedPtr<U, MT> other_(std::move(other));
@@ -1345,16 +1345,16 @@ template<class T, class U, bool MT>
 SharedRef<T, MT> static_pointer_cast(const SharedRef<U, MT>& other) noexcept
 {
 	// other is guaranteed non-null, so resulting SharedPtr<T> is also non-null
-	SharedPtr<T> casted = static_pointer_cast<T>(other.toSharedPtr());
+	SharedPtr<T, MT> casted = static_pointer_cast<T, U, MT>(other.toSharedPtr());
 	CZ_CHECK(casted.get() != nullptr);
-	return SharedRef<T>(casted);
+	return SharedRef<T, MT>(casted);
 }
 
 template<class T, class U, bool MT>
 SharedRef<T, MT> static_pointer_cast(SharedRef<U, MT>&& other) noexcept
 {
-	SharedPtr<U> tmp = other.toSharedPtr(); // copy, keep it simple. We can't actually move, because SharedRef doesn't have move semantics.
-	SharedPtr<T> casted = static_pointer_cast<T>(tmp);
+	SharedPtr<U, MT> tmp = other.toSharedPtr(); // copy, keep it simple. We can't actually move, because SharedRef doesn't have move semantics.
+	SharedPtr<T, MT> casted = static_pointer_cast<T, U, MT>(tmp);
 	CZ_CHECK(casted.get() != nullptr);
 	return SharedRef<T, MT>(casted);
 }
@@ -1375,12 +1375,13 @@ std::strong_ordering operator<=>(const SharedRef<T1, MT>& left, const SharedRef<
 
 
 //
-// Utilities to make it easier to use EnableSharedFromThis
+// Utilities to make it easier to use EnableSharedFromThis with class hiearchies by doing the required cast.
 //
 
-template <typename T>
-SharedPtr<T, T::EnableSharedFromThis_MT> toStrong(T* obj)
+template <typename T, typename U>
+SharedPtr<T, U::EnableSharedFromThis_MT> toStrong(U* obj)
 {
+	
 	return static_pointer_cast<T, T::EnableSharedFromThis_MT>(obj->sharedFromThis());
 }
 
