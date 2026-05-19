@@ -48,6 +48,19 @@ namespace cz
 			c.end());
 	}
 
+	/**
+	 * Removes up to one element from the container that is equal to 'v'.
+	 */
+	template<typename C, typename T>
+	auto removeFirst(C& c, const T& v) -> decltype(c.begin())
+	{
+		auto it = std::find(c.begin(), c.end(), v);
+		if (it == c.end())
+			return c.end();
+		else
+			return c.erase(it);
+	}
+
 	/*
 	 * Less verbose way to remove items from a container with a predicate
 	 */
@@ -57,6 +70,16 @@ namespace cz
 		return c.erase(
 			std::remove_if(c.begin(), c.end(), std::forward<F>(f)),
 			c.end());
+	}
+
+	template<typename C, typename F>
+	auto removeFirst_if(C& c, F&& f) -> decltype(c.begin())
+	{
+		auto it = std::find_if(c.begin(), c.end(), std::forward<F>(f));
+		if (it == c.end())
+			return c.end();
+		else
+			return c.erase(it);
 	}
 
 	/*

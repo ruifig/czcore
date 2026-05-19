@@ -3,6 +3,7 @@
 #include "Common.h"
 #include "Logging.h"
 #include "ThreadingUtils.h"
+#include "Algorithm.h"
 
 /*
 This controls if memory should be cleared when the last strong reference is gone and the object destroyed.
@@ -112,17 +113,23 @@ namespace details
 	{
 	  public:
 
+		~TraceList()
+		{
+			// If this triggered, we probably have a bug somewhere where we forgot to remove entries.
+			assert(m_list.empty());
+		}
+
 		void add(struct SharedPtrTrace* trace)
 		{
 			m_lock.lock();
-			m_list.pushBack(trace);
+			m_list.push_back(trace);
 			m_lock.unlock();
 		}
 
 		void remove(struct SharedPtrTrace* trace)
 		{
 			m_lock.lock();
-			m_list.remove(trace);
+			cz::removeFirst(m_list, trace);
 			m_lock.unlock();
 		}
 
@@ -143,12 +150,25 @@ namespace details
 			m_lock.unlock();
 		}
 
+		/**
+		 * Returns the first item (or nullptr if empty), and the total number of items.
+		 * This is used for debugging things at shutdown.
+		 */
+		std::pair<const SharedPtrTrace*, uint32_t> getFirstAndCount()
+		{
+			m_lock.lock();
+			SharedPtrTrace* res = m_list.empty() ? nullptr : m_list.front();
+			uint32_t size = static_cast<uint32_t>(m_list.size());
+			m_lock.unlock();
+			return {res, size};
+		}
+
 	  private:
-		DoublyLinkedList<struct SharedPtrTrace> m_list;
+		std::vector<struct SharedPtrTrace*> m_list;
 		SpinLock m_lock;
 	};
 
-	struct SharedPtrTrace : public DoublyLinked<SharedPtrTrace>
+	struct SharedPtrTrace
 	{
 		enum class Type
 		{
@@ -184,7 +204,6 @@ namespace details
 	};
 
 #endif
-
 
 	/**
 	 * RefCounter implements the following interface:
@@ -361,11 +380,11 @@ namespace details
 		#if CZ_SHAREDPTR_STACKTRACES
 		std::unique_ptr<SharedPtrTrace> createStackTrace(SharedPtrTrace::Type type)
 		{
-			if (traceData)
+			if (traces)
 			{
 				// Using `new` instead of make_unique, so `std::make_unique` doesn't show up in the stacktrace.
 				// This makes it easier for tools by allowing them to skip all the frames at the top that start with `cz::`
-				return std::unique_ptr<SharedPtrTrace>(new SharedPtrTrace(type, &traceData->traceList));
+				return std::unique_ptr<SharedPtrTrace>(new SharedPtrTrace(type, traces.get()));
 			}
 			else
 			{
@@ -377,9 +396,9 @@ namespace details
 		{
 			SharedPtrTraces res;
 
-			if (traceData)
+			if (traces)
 			{
-				traceData->traceList.visitAll([&res](const SharedPtrTrace* ele)
+				traces->visitAll([&res](const SharedPtrTrace* ele)
 				{
 					SharedPtrTraces::Entry entry{ele->timestamp, ele->frame, ele->trace};
 					if (ele->type == SharedPtrTrace::Type::Creation)
@@ -405,21 +424,10 @@ namespace details
 		friend void* allocSharedPtrBlock();
 
 		#if CZ_SHAREDPTR_STACKTRACES
-		struct StackTraceData
-		{
-			~StackTraceData()
-			{
-				firstTrace = nullptr;
-
-				// If there are still any traces in the list, then we have a bug somewhere in this code.
-				CZ_CHECK(traceList.isEmpty());
-			}
-			TraceList traceList;
-			std::unique_ptr<SharedPtrTrace> firstTrace;
-		};
 		// Intentionally putting this in a unique_ptr, so it's out of the same cache line, and it's not loaded every time
 		// we need to dereference a SharedPtr/WeakPtr.
-		std::unique_ptr<StackTraceData> traceData;
+		std::unique_ptr<TraceList> traces;
+		std::unique_ptr<SharedPtrTrace> firstTrace; // The trace when the control block was created.
 		#endif
 
 		RefCounter<MT> strong = 0;
@@ -559,8 +567,8 @@ namespace details
 		#if CZ_SHAREDPTR_STACKTRACES
 		if constexpr(details::enable_sharedptr_stacktraces_v<T>)
 		{
-			control->traceData = std::make_unique<typename BaseSharedPtrControlBlock<MT>::StackTraceData>();
-			control->traceData->firstTrace = control->createStackTrace(SharedPtrTrace::Type::Creation);
+			control->traces = std::make_unique<TraceList>();
+			control->firstTrace = control->createStackTrace(SharedPtrTrace::Type::Creation);
 		}
 		#endif
 
