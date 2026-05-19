@@ -645,6 +645,10 @@ class BasicEnableSharedFromThis
 
 	/**
 	 * Returns a shared pointer to this object
+	 *
+	 * Since this always returns a shared pointer to the base class, you might prefer to use the `sharedFrom` global function, 
+	 * which give a shared pointer of T, it does the necessary cast so it returns a shared pointer of T.
+	 * 
 	 * NOTE: Assumes the object was allocated via makeShared or any of the other helper functions.
 	 */
 	BasicSharedPtr<T, MT> sharedFromThis()
@@ -670,8 +674,7 @@ class BasicEnableSharedFromThis
 	}
 
 	/**
-	 * Returns a shared pointer to this object.
-	 * NOTE: Assumes the object was allocated via makeShared or any of the other helper functions.
+	 * Const version of sharedFromThis.
 	 */
 	BasicSharedPtr<const T, MT> sharedFromThis() const
 	{
@@ -822,30 +825,19 @@ namespace cz
 	// Utilities to make it easier to use EnableSharedFromThis with class hierarchies by doing the required cast.
 	//
 
-	template <typename T, typename U>
-	details::BasicSharedPtr<T, U::BasicEnableSharedFromThis_MT> toStrong(U* obj)
+
+	template<typename T>
+	details::BasicSharedPtr<T, T::BasicEnableSharedFromThis_MT> sharedFrom(T* obj)
 	{
+		CZ_CHECK(obj != nullptr);
 		return static_pointer_cast<T, T::BasicEnableSharedFromThis_MT>(obj->sharedFromThis());
 	}
 
-	template <typename T>
-	details::BasicSharedPtr<const T, T::BasicEnableSharedFromThis_MT> toStrong(const T* obj)
+	template<typename T>
+	details::BasicSharedRef<T, T::BasicEnableSharedFromThis_MT> sharedRefFrom(T* obj)
 	{
-		return static_pointer_cast<const T, T::BasicEnableSharedFromThis_MT>(obj->sharedFromThis());
+		return sharedFrom(obj).toSharedRef();
 	}
-
-	template <typename T>
-	details::BasicSharedPtr<T, T::BasicEnableSharedFromThis_MT> toStrong(T& obj)
-	{
-		return static_pointer_cast<T, T::BasicEnableSharedFromThis_MT>(obj.sharedFromThis());
-	}
-
-	template <typename T>
-	details::BasicSharedPtr<const T, T::BasicEnableSharedFromThis_MT> toStrong(const T& obj)
-	{
-		return static_pointer_cast<const T, T::BasicEnableSharedFromThis_MT>(obj.sharedFromThis());
-	}
-
 
 } // namespace cz
 

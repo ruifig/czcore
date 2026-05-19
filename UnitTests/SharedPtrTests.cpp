@@ -1035,9 +1035,9 @@ TEST_CASE("EnableSharedFromThis", "[SmartPointers]")
 	CHECK(foo.use_count() == 1);
 	CHECK(foo.weak_use_count() == 2);
 
-	Foo* raw = foo.get();
+	Base* raw = static_cast<Base*>(foo.get());
 
-	Ptr<Foo> foo2 = toStrong<Foo>(raw);
+	Ptr<Foo> foo2 = sharedRefFrom(static_cast<Foo*>(raw));
 	CHECK(wfoo.use_count() == 2);
 	CHECK(wfoo.weak_use_count() == 2);
 
