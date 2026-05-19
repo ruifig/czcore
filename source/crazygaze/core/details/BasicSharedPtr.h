@@ -654,9 +654,19 @@ class BasicEnableSharedFromThis
 		auto ctrl = reinterpret_cast<typename BasicSharedPtr<T, MT>::ControlBlock*>(rawPtr);
 
 		if (ctrl->lockStrong())
+		{
 			return BasicSharedPtr<T, MT>(ctrl);
+		}
 		else
+		{
+			// I believe we should never get here, since `this` needs to be valid, and if so, then `lockStrong` should always succeed.
+			// If this triggers, then two things I can think of:
+			//	- Most likely the problem is that this was called from the object's constructor, before the control block was fully setup.
+			//	- There is some race condition where the object is being destroyed in another thread right when sharedFromThis is
+			//	  called.
+			CZ_CHECK(false);
 			return {};
+		}
 	}
 
 	/**
