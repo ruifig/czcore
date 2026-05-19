@@ -17,6 +17,9 @@ class BasicSharedRef;
  *
  * Things to be aware of:
  *
+ *	- The control block is ALWAYS allocated together with the object, therefore it doesn't allow using SharedPtr with objects that were allocated in a different way.
+ *		- Allocation should be done with the "makeShared" helper functions.
+ * - Casts when multiple inheritance are problematic. You might end up with heap corruption.
  * - Doesn't provide all the functions and operators std::shared_ptr provides.
  * - Custom deleters can be supported by defining a "SharedPtrDeleter" type in your class.
  * For example:
@@ -37,8 +40,6 @@ class BasicSharedRef;
  * - Allows capturing stack traces for debugging purposes
  *		- Setting CZ_SHAREDPTR_STACKTRACES to 1 it compiles in stack trace support, but enabling it for a specific class is opt-in.
  *		  You can enable it for a specific class by adding a static member in your class: `static constexpr bool enable_sharedptr_stacktraces = true;`
- *	- The control block is ALWAYS allocated together with the object, therefore it doesn't allow using SharedPtr with objects that were allocated in a different way.
- *		- Allocation should be done with the "makeShared" helper functions.
  */
 template<typename T, bool MT>
 class BasicSharedPtr
