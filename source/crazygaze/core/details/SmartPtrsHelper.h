@@ -295,7 +295,7 @@ namespace details
 
 			while(n != 0)
 			{
-				if (m_value.compare_exchange_weak(n, n + 1, std::memory_order_acquire, std::memory_order_relaxed))
+				if (m_value.compare_exchange_weak(n, n + 1, std::memory_order_acq_rel, std::memory_order_relaxed))
 				{
 					// We managed to increment the counter from a non-zero value, which means from this point on no other threads will cause it to go to zero.
 					return true; 

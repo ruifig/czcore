@@ -51,6 +51,9 @@ class BasicSharedPtr
 	template<typename U, bool OtherMT>
 	friend class BasicSharedPtr;
 
+	template <typename T, bool MT>
+	friend class BasicEnableSharedFromThis;
+
 	using ControlBlock = SharedPtrControlBlock<T, MT>;	
 
 	using pointer = T*;
@@ -209,7 +212,7 @@ class BasicSharedPtr
 
   private:
 
-	// This is private, since only BasicWeakPtr::lock can use it
+	// This is private, so that only BasicWeakPtr::lock and BasicEnableSharedFromThis::sharedFromThis can use it
 	BasicSharedPtr(ControlBlock* control) noexcept
 	{
 		acquireBlock<false>(control);
@@ -646,7 +649,13 @@ class BasicEnableSharedFromThis
 	BasicSharedPtr<T, MT> sharedFromThis()
 	{
 		T* derivedThis = static_cast<T*>(this);
-		return BasicSharedPtr<T, MT>(derivedThis);
+		void* rawPtr = reinterpret_cast<uint8_t*>(derivedThis) - sizeof(typename BasicSharedPtr<T, MT>::ControlBlock);
+		auto ctrl = reinterpret_cast<typename BasicSharedPtr<T, MT>::ControlBlock*>(rawPtr);
+
+		if (ctrl->lockStrong())
+			return BasicSharedPtr<T, MT>(ctrl);
+		else
+			return {};
 	}
 
 	/**
@@ -656,8 +665,13 @@ class BasicEnableSharedFromThis
 	BasicSharedPtr<const T, MT> sharedFromThis() const
 	{
 		const T* derivedThis = static_cast<const T*>(this);
-		// Need to cast away const because SharedPtr constructor expects non-const
-		return BasicSharedPtr<const T, MT>(const_cast<T*>(derivedThis));
+		void* rawPtr = reinterpret_cast<uint8_t*>(const_cast<T*>(derivedThis)) - sizeof(typename BasicSharedPtr<T, MT>::ControlBlock);
+		auto ctrl = reinterpret_cast<typename BasicSharedPtr<T, MT>::ControlBlock*>(rawPtr);
+
+		if (ctrl->lockStrong())
+			return BasicSharedPtr<const T, MT>(ctrl);
+		else
+			return {};
 	}
 
 	/**
@@ -720,6 +734,7 @@ namespace cz
 		return details::BasicSharedPtr<T, MT>(static_cast<T*>(other.get()));
 	}
 
+	// #TODO : Do I need this? It's not doing anything.
 	template<class T, bool MT, class U>
 	details::BasicSharedPtr<T, MT> static_pointer_cast(details::BasicSharedPtr<U, MT>&& other) noexcept
 	{
