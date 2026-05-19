@@ -88,6 +88,12 @@ struct pointer_comp
 		{
 		}
 
+		template<class U>
+		helper(LocalSharedPtr<U> const& sp)
+			: ptr(sp.get())
+		{
+		}
+
 		// && optional: enforces rvalue use only
 		bool operator<(helper o) const
 		{
