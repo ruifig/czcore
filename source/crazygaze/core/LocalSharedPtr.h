@@ -29,10 +29,10 @@ template<typename T>
 using LocalSharedPtr = details::BasicSharedPtr<T, false>;
 
 template<typename T>
-using LocalWeakPtr = details::BasicWeakPtrImpl<T, false, false>;
+using LocalWeakPtr = details::BasicWeakPtr<T, false, false>;
 
 template<typename T>
-using LocalObserverPtr = details::BasicWeakPtrImpl<T, false, true>;
+using LocalObserverPtr = details::BasicWeakPtr<T, false, true>;
 
 
 template<typename T>

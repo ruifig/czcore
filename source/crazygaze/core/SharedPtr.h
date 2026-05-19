@@ -29,10 +29,10 @@ template <typename T>
 using SharedPtr = details::BasicSharedPtr<T, true>;
 
 template <typename T>
-using WeakPtr = details::BasicWeakPtrImpl<T, true, false>;
+using WeakPtr = details::BasicWeakPtr<T, true, false>;
 
 template <typename T>
-using ObserverPtr = details::BasicWeakPtrImpl<T, true, true>;
+using ObserverPtr = details::BasicWeakPtr<T, true, true>;
 
 template<typename T>
 using SharedRef = details::BasicSharedRef<T, true>;

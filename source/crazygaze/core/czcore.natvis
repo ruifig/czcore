@@ -15,10 +15,10 @@
       </Expand>
   </Type>
 
-  <Type Name="cz::details::BasicWeakPtrImpl&lt;*&gt;">
+  <Type Name="cz::details::BasicWeakPtr&lt;*&gt;">
       <DisplayString Condition="m_control.ctrl == 0">empty</DisplayString>
-      <DisplayString Condition="(m_control.ctrl != 0) &amp;&amp; (m_control.ctrl-&gt;strong.m_value._Storage._Value == 0)"> WeakPtrImpl expired [{m_control.ctrl-&gt;strong.m_value._Storage._Value} strong ref, {m_control.ctrl-&gt;weak.m_value._Storage._Value} weak refs] [{*m_control.ctrl}]</DisplayString>
-      <DisplayString Condition="(m_control.ctrl != 0) &amp;&amp; (m_control.ctrl-&gt;strong.m_value._Storage._Value > 0)"> WeakPtrImpl {*(pointer)(m_control.ctrl+1)} [{m_control.ctrl-&gt;strong.m_value._Storage._Value} strong ref, {m_control.ctrl-&gt;weak.m_value._Storage._Value} weak refs] [{*m_control.ctrl}]</DisplayString>
+      <DisplayString Condition="(m_control.ctrl != 0) &amp;&amp; (m_control.ctrl-&gt;strong.m_value._Storage._Value == 0)"> WeakPtr expired [{m_control.ctrl-&gt;strong.m_value._Storage._Value} strong ref, {m_control.ctrl-&gt;weak.m_value._Storage._Value} weak refs] [{*m_control.ctrl}]</DisplayString>
+      <DisplayString Condition="(m_control.ctrl != 0) &amp;&amp; (m_control.ctrl-&gt;strong.m_value._Storage._Value > 0)"> WeakPtr {*(pointer)(m_control.ctrl+1)} [{m_control.ctrl-&gt;strong.m_value._Storage._Value} strong ref, {m_control.ctrl-&gt;weak.m_value._Storage._Value} weak refs] [{*m_control.ctrl}]</DisplayString>
       <Expand>
           <Item Condition="m_control.ctrl != 0" Name="[ptr]">*(pointer)(m_control.ctrl+1)</Item>
           <Item Condition="m_control.ctrl != 0" Name="[control block]">*m_control.ctrl</Item>

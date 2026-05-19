@@ -47,7 +47,7 @@ class BasicSharedPtr
   public:
 
 	template<typename U, bool OtherMT, bool IsObserver>
-	friend class BasicWeakPtrImpl;
+	friend class BasicWeakPtr;
 
 	template<typename U, bool OtherMT>
 	friend class BasicSharedPtr;
@@ -266,7 +266,7 @@ class BasicSharedPtr
 };
 
 template<typename T, bool MT, bool IsObserver>
-class BasicWeakPtrImpl
+class BasicWeakPtr
 {
   public:
 
@@ -276,80 +276,80 @@ class BasicWeakPtrImpl
 	using element_type = T;
 
 	template<typename U, bool OtherMT, bool OtherIsObserver>
-	friend class BasicWeakPtrImpl;
+	friend class BasicWeakPtr;
 
-	constexpr BasicWeakPtrImpl() = default;
+	constexpr BasicWeakPtr() = default;
 
-	BasicWeakPtrImpl(const BasicWeakPtrImpl& other) noexcept
+	BasicWeakPtr(const BasicWeakPtr& other) noexcept
 	{
 		acquireBlock(other.m_control.ctrl);
 	}
 
 	template<typename U, bool OtherIsObserver>
-	BasicWeakPtrImpl(const BasicWeakPtrImpl<U, MT, OtherIsObserver>& other) noexcept
+	BasicWeakPtr(const BasicWeakPtr<U, MT, OtherIsObserver>& other) noexcept
 	{
 		static_assert(std::is_convertible_v<U*, T*>);
 		acquireBlock(other.m_control.ctrl);
 	}
 
 	template<typename U>
-	BasicWeakPtrImpl(const BasicSharedPtr<U, MT>& other) noexcept
+	BasicWeakPtr(const BasicSharedPtr<U, MT>& other) noexcept
 	{
 		static_assert(std::is_convertible_v<U*, T*>);
 		acquireBlock(other.m_control.ctrl);
 	}
 
-	BasicWeakPtrImpl(BasicWeakPtrImpl&& other) noexcept
+	BasicWeakPtr(BasicWeakPtr&& other) noexcept
 	{
 		std::swap(m_control, other.m_control);
 	}
 
 	template<typename U, bool OtherIsObserver>
-	BasicWeakPtrImpl(BasicWeakPtrImpl<U, MT, OtherIsObserver>&& other) noexcept
+	BasicWeakPtr(BasicWeakPtr<U, MT, OtherIsObserver>&& other) noexcept
 	{
 		static_assert(std::is_convertible_v<U*, T*>);
 		std::swap(m_control, reinterpret_cast<ControlHolder&>(other.m_control));
 	}
 
-	~BasicWeakPtrImpl() noexcept
+	~BasicWeakPtr() noexcept
 	{
 		m_control.release();
 	}
 
-	BasicWeakPtrImpl& operator=(const BasicWeakPtrImpl& other) noexcept
+	BasicWeakPtr& operator=(const BasicWeakPtr& other) noexcept
 	{
-		BasicWeakPtrImpl(other).swap(*this);
+		BasicWeakPtr(other).swap(*this);
 		return *this;
 	}
 
 	template<typename U, bool OtherIsObserver>
-	BasicWeakPtrImpl& operator=(const BasicWeakPtrImpl<U, MT, OtherIsObserver>& other) noexcept
+	BasicWeakPtr& operator=(const BasicWeakPtr<U, MT, OtherIsObserver>& other) noexcept
 	{
 		static_assert(std::is_convertible_v<U*, T*>);
-		BasicWeakPtrImpl(other).swap(*this);
+		BasicWeakPtr(other).swap(*this);
 		return *this;
 	}
 
-	BasicWeakPtrImpl& operator=(BasicWeakPtrImpl&& other) noexcept
+	BasicWeakPtr& operator=(BasicWeakPtr&& other) noexcept
 	{
-		BasicWeakPtrImpl(std::move(other)).swap(*this);
+		BasicWeakPtr(std::move(other)).swap(*this);
 		return *this;
 	}
 
 	template<typename U, bool OtherIsObserver>
-	BasicWeakPtrImpl& operator=(BasicWeakPtrImpl<U, MT, OtherIsObserver>&& other) noexcept
+	BasicWeakPtr& operator=(BasicWeakPtr<U, MT, OtherIsObserver>&& other) noexcept
 	{
 		static_assert(std::is_convertible_v<U*, T*>);
-		BasicWeakPtrImpl(std::move(other)).swap(*this);
+		BasicWeakPtr(std::move(other)).swap(*this);
 		return *this;
 	}
 
 	void reset() noexcept
 	{
-		BasicWeakPtrImpl{}.swap(*this);
+		BasicWeakPtr{}.swap(*this);
 	}
 
-	void swap(BasicWeakPtrImpl& other) noexcept
+	void swap(BasicWeakPtr& other) noexcept
 	{
 		std::swap(m_control, other.m_control);
 	}
@@ -680,9 +680,9 @@ class BasicEnableSharedFromThis
 	 *
 	 * Useful when you want to check if the object is still alive in async scenarios.
 	 */
-	BasicWeakPtrImpl<T, MT, false> weakFromThis()
+	BasicWeakPtr<T, MT, false> weakFromThis()
 	{
-		return BasicWeakPtrImpl<T, MT, false>(sharedFromThis());
+		return BasicWeakPtr<T, MT, false>(sharedFromThis());
 	}
 
 	/**
@@ -690,9 +690,9 @@ class BasicEnableSharedFromThis
 	 *
 	 * Useful when you want to check if the object is still alive in async scenarios.
 	 */
-	BasicWeakPtrImpl<const T, MT, false> weakFromThis() const
+	BasicWeakPtr<const T, MT, false> weakFromThis() const
 	{
-		return BasicWeakPtrImpl<const T, MT, false>(sharedFromThis());
+		return BasicWeakPtr<const T, MT, false>(sharedFromThis());
 	}
 };
 
