@@ -83,27 +83,16 @@ namespace cz
 
 namespace details
 {
-	template<typename T, class = void>
-	struct enable_sharedptr_stacktraces : CZ_SHAREDPTR_STACKTRACES_DEFAULT
-	{
-	};
 
-	// Use SFINAE to check if T has a "enable_sharedptr_stacktraces" member, and if so, use it as the value for
-	// enable_sharedptr_stacktraces<T>::value
-	template<typename T>
-	struct enable_sharedptr_stacktraces<T, std::void_t<decltype(T::enable_sharedptr_stacktraces)>>
-		: std::bool_constant<T::enable_sharedptr_stacktraces>
-	{
-	};
 
 	template<class T>
-	inline constexpr bool enable_sharedptr_stacktraces_v =
-#if CZ_SHAREDPTR_STACKTRACES
-		 enable_sharedptr_stacktraces<T>::value;
-#else
-		false;
-#endif
-
+	bool shouldCaptureStackTraces()
+	{
+		if constexpr (requires(T* p) { T::captureSharedPtrStackTraces(); })
+			return T::captureSharedPtrStackTraces();
+		else
+			return false;
+	}
 
 #if CZ_SHAREDPTR_STACKTRACES
 	/**
@@ -457,8 +446,7 @@ namespace details
 		using type = SharedPtrDefaultDeleter;
 	};
 
-	// Use SFINAE to check if T has a "SharedPtrDeleter" member, and if so, use it as the value for
-	// enable_sharedptr_stacktraces<T>::value
+	// Use SFINAE to check if T has a "SharedPtrDeleter" member
 	template<typename T>
 	struct GetSharedPtrDeleterType<T, std::void_t<typename T::SharedPtrDeleter>>
 	{
@@ -566,7 +554,7 @@ namespace details
 		BaseSharedPtrControlBlock<MT>* control = new (basePtr) SharedPtrControlBlockWithDeleter<T, MT, Deleter>(sizeof(T));
 
 		#if CZ_SHAREDPTR_STACKTRACES
-		if constexpr(details::enable_sharedptr_stacktraces_v<T>)
+		if (details::shouldCaptureStackTraces<T>())
 		{
 			control->traces = std::make_unique<TraceList>();
 			control->firstTrace = control->createStackTrace(SharedPtrTrace::Type::Creation);
