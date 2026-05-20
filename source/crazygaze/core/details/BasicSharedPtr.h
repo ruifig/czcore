@@ -74,10 +74,10 @@ class BasicSharedPtr
 	 */
 	template<typename U>
 	explicit BasicSharedPtr(U* ptr) noexcept
+		requires(std::is_base_of_v<T, U>)
 	{
 		if (ptr)
 		{
-			static_assert(std::is_convertible_v<U*, T*>);
 			const void* rawPtr = (reinterpret_cast<const uint8_t*>(static_cast<T*>(ptr)) - sizeof(ControlBlock));
 			acquireBlock<true>(reinterpret_cast<ControlBlock*>(const_cast<void*>(rawPtr)));
 		}
@@ -107,8 +107,8 @@ class BasicSharedPtr
 
 	template<typename U>
 	BasicSharedPtr(BasicSharedPtr<U, MT>&& other) noexcept
+		requires(std::is_base_of_v<T, U>)
 	{
-		static_assert(std::is_convertible_v<U*, T*>);
 		std::swap(m_control, reinterpret_cast<ControlHolder&>(other.m_control));
 	}
 
@@ -210,14 +210,34 @@ class BasicSharedPtr
 #endif
 	}
 
+	// Don't use this directly. It's for internal use only
+	static BasicSharedPtr _internal_createFromAlreadyAcquiredBlock(ControlBlock* control) noexcept
+	{
+		BasicSharedPtr res;
+		res.acquireBlock<false>(control);
+		return res;
+	}
+
+	// Don't use this directly. It's for internal use only
+	template<typename U>
+	static BasicSharedPtr _internal_stealBlockAndCreate(BasicSharedPtr<U, MT>& from)
+	{
+		BasicSharedPtr res;
+		res.m_control = reinterpret_cast<ControlHolder&&>(std::move(from.m_control));
+		from.m_control = {};
+		return res;
+	}
 
   private:
 
 	// This is private, so that only BasicWeakPtr::lock and BasicEnableSharedFromThis::sharedFromThis can use it
+	#if 0
 	BasicSharedPtr(ControlBlock* control) noexcept
 	{
 		acquireBlock<false>(control);
 	}
+	#else
+	#endif
 
 	template<bool doInc, typename U>
 	void acquireBlock(details::SharedPtrControlBlock<U, MT>* control) noexcept
@@ -251,6 +271,8 @@ class BasicSharedPtr
 		{
 			if (ctrl)
 			{
+				ZoneScoped;
+
 				// This needs to be before decStrong.
 				// If it was after decStrong, it meant if the decStrong caused the control block to be destroyed, then destroying
 				// the trace after that would cause a use-after-free.
@@ -381,7 +403,7 @@ class BasicWeakPtr
 
 		if (m_control.ctrl->lockStrong())
 		{
-			return BasicSharedPtr<T, MT>(m_control.ctrl);
+			return BasicSharedPtr<T, MT>::_internal_createFromAlreadyAcquiredBlock(m_control.ctrl);
 		}
 		else
 		{
@@ -451,6 +473,8 @@ class BasicWeakPtr
 		{
 			if (ctrl)
 			{
+				ZoneScoped;
+
 				// This needs to be before decStrong.
 				// If it was after decStrong, it meant if the decStrong caused the control block to be destroyed, then destroying
 				// the trace after that would cause a use-after-free.
@@ -659,7 +683,7 @@ class BasicEnableSharedFromThis
 
 		if (ctrl->lockStrong())
 		{
-			return BasicSharedPtr<T, MT>(ctrl);
+			return BasicSharedPtr<T, MT>::_internal_createFromAlreadyAcquiredBlock(ctrl);
 		}
 		else
 		{
@@ -683,9 +707,14 @@ class BasicEnableSharedFromThis
 		auto ctrl = reinterpret_cast<typename BasicSharedPtr<T, MT>::ControlBlock*>(rawPtr);
 
 		if (ctrl->lockStrong())
-			return BasicSharedPtr<const T, MT>(ctrl);
+		{
+			return BasicSharedPtr<const T, MT>::createFromAlreadyAcquiredBlock(ctrl);
+		}
 		else
+		{
+			CZ_CHECK(false);
 			return {};
+		}
 	}
 
 	/**
@@ -744,16 +773,17 @@ namespace cz
 
 	template<class T, bool MT, class U>
 	details::BasicSharedPtr<T, MT> static_pointer_cast(const details::BasicSharedPtr<U, MT>& other) noexcept
+		requires(std::is_base_of_v<U, T>)
 	{
 		return details::BasicSharedPtr<T, MT>(static_cast<T*>(other.get()));
 	}
 
-	// #TODO : Do I need this? It's not doing anything.
 	template<class T, bool MT, class U>
 	details::BasicSharedPtr<T, MT> static_pointer_cast(details::BasicSharedPtr<U, MT>&& other) noexcept
+		requires(std::is_base_of_v<U, T>)
 	{
-		details::BasicSharedPtr<U, MT> other_(std::move(other));
-		return details::BasicSharedPtr<T, MT>(static_cast<T*>(other_.get()));
+		// This seems a bit convoluted, but avoid creating another stack trace if stack traces are enabled, and stack traces are expensive
+		return details::BasicSharedPtr<T, MT>::_internal_stealBlockAndCreate(other);
 	}
 
 	template <class T, class U, bool MT>
@@ -789,21 +819,12 @@ namespace cz
 
 	template<class T, class U, bool MT>
 	details::BasicSharedRef<T, MT> static_pointer_cast(const details::BasicSharedRef<U, MT>& other) noexcept
+		requires(std::is_base_of_v<U, T>)
 	{
 		// other is guaranteed non-null, so resulting SharedPtr<T> is also non-null
-		details::BasicSharedPtr<T, MT> casted = static_pointer_cast<T, U, MT>(other.toSharedPtr());
+		details::BasicSharedPtr<T, MT> casted = static_pointer_cast<T>(other.toSharedPtr());
 		CZ_CHECK(casted.get() != nullptr);
-		return details::BasicSharedRef<T, MT>(casted);
-	}
-
-	// #TODO : Do I need this? Probably not, since SharedRef doesn't have move semantics.
-	template<class T, class U, bool MT>
-	details::BasicSharedRef<T, MT> static_pointer_cast(details::BasicSharedRef<U, MT>&& other) noexcept
-	{
-		details::BasicSharedPtr<U, MT> tmp = other.toSharedPtr(); // copy, keep it simple. We can't actually move, because SharedRef doesn't have move semantics.
-		details::BasicSharedPtr<T, MT> casted = static_pointer_cast<T, U, MT>(tmp);
-		CZ_CHECK(casted.get() != nullptr);
-		return details::BasicSharedRef<T, MT>(casted);
+		return details::BasicSharedRef<T, MT>(std::move(casted));
 	}
 
 	// Comparisons

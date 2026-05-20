@@ -31,5 +31,9 @@
 	#define TracyLockable( type, varname ) type varname
 	#define LockableBase( type ) type
 	#define TracyIsConnected false
+	#define ZoneScoped
+	#define ZoneScopedN(x)
+	#define ZoneScopedC(x)
+	#define ZoneScopedNC(x,y)
 #endif
 

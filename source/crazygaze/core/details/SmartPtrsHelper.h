@@ -382,6 +382,7 @@ namespace details
 		{
 			if (traces)
 			{
+				ZoneScoped;
 				// Using `new` instead of make_unique, so `std::make_unique` doesn't show up in the stacktrace.
 				// This makes it easier for tools by allowing them to skip all the frames at the top that start with `cz::`
 				return std::unique_ptr<SharedPtrTrace>(new SharedPtrTrace(type, traces.get()));
