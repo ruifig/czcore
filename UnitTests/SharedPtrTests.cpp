@@ -10,6 +10,8 @@ struct WrongBase
 
 #define THREADSAFE 1
 
+bool gCaptureStackTraces = false;
+
 struct Base :
 #if THREADSAFE
 	EnableSharedFromThis<Base>
@@ -17,7 +19,11 @@ struct Base :
 	EnableLocalSharedFromThis<Base>
 #endif
 {
-	static constexpr bool enable_sharedptr_stacktraces = true;
+
+	static bool captureSharedPtrStackTraces()
+	{
+		return gCaptureStackTraces;
+	}
 
 	Base()
 	{
