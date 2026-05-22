@@ -54,7 +54,6 @@ using EnableSharedFromThis = details::BasicEnableSharedFromThis<T, true>;
 
 /**
  * Helper to use in lambdas that capture a "weakThis".
- * It locks `weakThis` into a `strongThis` pointer. If the lock fails (i.e the object was destroyed), it returns from the
  * function.
  */
 #define lockWeakThis()                 \
