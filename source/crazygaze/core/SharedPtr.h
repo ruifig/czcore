@@ -57,7 +57,7 @@ using EnableSharedFromThis = details::BasicEnableSharedFromThis<T, true>;
  * It locks `weakThis` into a `strongThis` pointer. If the lock fails (i.e the object was destroyed), it returns from the
  * function.
  */
-#define lockWeakThis()          \
+#define lockWeakThis()                 \
 	auto strongThis = weakThis.lock(); \
 	if (!strongThis)                   \
 		return;
