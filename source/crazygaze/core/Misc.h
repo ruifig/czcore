@@ -1,6 +1,6 @@
 #pragma once
 
-#include "SharedPtr.h"
+#include "details/BasicSharedPtr.h"
 
 /**
  * Defines the bitwise operators for an enum class that is used as a flags enum.
@@ -82,14 +82,8 @@ struct pointer_comp
 		{
 		}
 
-		template<class U>
-		helper(SharedPtr<U> const& sp)
-			: ptr(sp.get())
-		{
-		}
-
-		template<class U>
-		helper(LocalSharedPtr<U> const& sp)
+		template<class U, bool MT>
+		helper(details::BasicSharedPtr<U, MT> const& sp)
 			: ptr(sp.get())
 		{
 		}

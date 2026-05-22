@@ -231,7 +231,7 @@ namespace details
 	  public:
 
 		RefCounter(uint32_t value) noexcept
-			: m_value{Value{value}}
+			: m_value{Value{{value}}}
 		{
 		}
 
