@@ -108,7 +108,6 @@ fs::path getProcessExe()
 		if (res != size) // Call failed
 		{
 			CZ_LOG(Main, Fatal, "{}", getWin32Error("GetModuleFileNameW"));
-			return "";
 		}
 
 		// Try again with a larger buffer;

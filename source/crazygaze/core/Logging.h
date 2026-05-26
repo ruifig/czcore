@@ -185,6 +185,7 @@ inline std::string_view getCZLOGContext()
 		if constexpr (::cz::LogLevel::logLevel == ::cz::LogLevel::Fatal)                                       \
 		{                                                                                                      \
 			::cz::details::doDebugBreak();                                                                     \
+			abort();                                                                                           \
 		}                                                                                                      \
 	}
 
@@ -195,14 +196,12 @@ inline std::string_view getCZLOGContext()
 	if (!(expr))                               \
 	{                                          \
 		CZ_LOG(Main, Fatal, "Assert :" #expr); \
-		exit(1);                               \
 	}
 
 #define CZ_CHECK_F_IMPL(expr, format, ...)                                 \
 	if (!(expr))                                                           \
 	{                                                                      \
 		CZ_LOG(Main, Fatal, "Assert '" #expr "': " format, ##__VA_ARGS__); \
-		exit(1);                                                           \
 	}
 
 #if CZ_DEBUG || CZ_DEVELOPMENT
