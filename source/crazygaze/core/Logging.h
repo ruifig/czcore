@@ -232,6 +232,16 @@ inline std::string_view getCZLOGContext()
 	#define CZ_VERIFY_SLOW_F(expr, format, ...) {if(expr) {}}
 #endif
 
+/**
+ * The "ALWAYS" versions do the checks in all build configurations. They are never compiled out.
+ * They should be used for checks that are critical and should never be skipped even in release builds.
+ * If the test fails, the application is killed.
+ * Since it always does the check, there is no need for the VERIFY variants.
+ */
+#define CZ_CHECK_ALWAYS(expr) CZ_CHECK_IMPL(expr)
+#define CZ_CHECK_ALWAYS_F(expr, format, ...) CZ_CHECK_F_IMPL(expr, format, ##__VA_ARGS__)
+
+
 #define CZ_DECLARE_LOG_CATEGORY(NAME, DEFAULT_LEVEL, COMPILETIME_LEVEL) \
 	extern class LogCategory##NAME : public ::cz::LogCategory<::cz::LogLevel::DEFAULT_LEVEL, ::cz::LogLevel::COMPILETIME_LEVEL>  \
 	{                                                                                                                                     \
