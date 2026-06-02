@@ -31,7 +31,7 @@ public:
  *
  * This implements a spinlock mutex.
  * A spinlock mutex doesn't put the thread to sleep. Instead, it continuously checks if the lock is available. This is
- * faster if we know the locks are hold for very short times.
+ * faster if we know that the locks are held for very short periods.
  *
  * NOTE: Because this implements the same public interface as std::mutex, it can be used with
  * std::lock_guard and std::unique_lock.
