@@ -845,10 +845,11 @@ namespace cz
 	}
 
 
+	//////////////////////////////////////////////////////////////////////////
 	//
-	// Utilities to make it easier to use EnableSharedFromThis with class hierarchies by doing the required cast.
+	// Utilities to make it easier to use EnableSharedFromThis with class hierarchies by doing the required casts.
 	//
-
+	//////////////////////////////////////////////////////////////////////////
 
 	template<typename T>
 	details::BasicSharedPtr<T, T::BasicEnableSharedFromThis_MT> sharedFrom(T* obj)
@@ -862,6 +863,24 @@ namespace cz
 	{
 		return sharedFrom(obj).toSharedRef();
 	}
+
+	/**
+	 * Given a raw pointer to an object that inherits from EnableSharedFromThis, returns a WeakPtr<T> to that object.
+	 * This is sometimes easier than calling obj->weakFromThis(), since that will return a WeakPtr of the base class specified in
+	 * the EnableSharedFromThis.
+	 *
+	 * By using this utility function, the returned WeakPtr will be of the type T already.
+	 * 
+	 * A typical use case is when passing a WeakPtr to a lambda, which we then want to lock to do some changes.
+	 * By using this, we avoid having to do any casts in the lambda.
+	 */
+	template<typename T>
+	details::BasicWeakPtr<T, T::BasicEnableSharedFromThis_MT, false> weakFrom(T* obj)
+	{
+		CZ_CHECK(obj != nullptr);
+		return details::BasicWeakPtr<T, T::BasicEnableSharedFromThis_MT, false>(sharedFrom<T>(obj));
+	}
+
 
 } // namespace cz
 
