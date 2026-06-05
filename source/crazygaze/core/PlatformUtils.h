@@ -30,6 +30,13 @@ fs::path getProcessPath();
  */
 fs::path getProcessExe();
 
+/**
+ * Returns the number of physical cores.
+ * If the platform doesn't allow retrieving that, it simply returns std::thread::hardware_concurrency(), which might be the number
+ * of logical cores instead.
+ */
+uint32_t getNumPhysicalCores();
+
 } // namespace cz
 
 

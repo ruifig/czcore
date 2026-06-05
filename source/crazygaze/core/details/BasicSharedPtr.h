@@ -274,8 +274,6 @@ class BasicSharedPtr
 		{
 			if (ctrl)
 			{
-				ZoneScoped;
-
 				// This needs to be before decStrong.
 				// If it was after decStrong, it meant if the decStrong caused the control block to be destroyed, then destroying
 				// the trace after that would cause a use-after-free.
@@ -476,8 +474,6 @@ class BasicWeakPtr
 		{
 			if (ctrl)
 			{
-				ZoneScoped;
-
 				// This needs to be before decStrong.
 				// If it was after decStrong, it meant if the decStrong caused the control block to be destroyed, then destroying
 				// the trace after that would cause a use-after-free.

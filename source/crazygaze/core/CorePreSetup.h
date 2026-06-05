@@ -8,7 +8,8 @@
 		__pragma(warning(disable: 4355))  /* 'this': used in base member initializer list */                                                                                                                    \
 		__pragma(warning(disable: 4388))  /* ''token' : signed/unsigned mismatch*/                                                                                                                              \
 		__pragma(warning(disable: 5204))  /* '<class>': class has virtual functions, but its trivial destructor is not virtual; instances of objects derived from this class may not be destructed correctly */ \
-		__pragma(warning(disable: 4061))  /* enumerator 'identifier' in switch of enum 'enumeration' is not explicitly handled by a case label */                                                               \
+		__pragma(warning(disable: 4061))  /* enumerator 'identifier' in switch of enum 'enumeration' is not explicitly handled by a case label (even if there is a `default` label */                           \
+		__pragma(warning(disable: 4062))  /* enumerator 'identifier' in switch of enum 'enumeration' is not handled  (when there isn't a `default` label) */                                                    \
 		__pragma(warning(disable: 4702))  /* unreachable code */                                                                                                                                                \
 		__pragma(warning(disable: 4868))  /* compiler may not enforce left-to-right evaluation order in braced initializer list */                                                                              \
 		__pragma(warning(disable: 4820))  /* 'bytes' bytes padding added after construct 'member_name' */                                                                                                       \
