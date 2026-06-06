@@ -2,6 +2,7 @@
 
 #include "crazygaze/core/CorePch.h" 
 
+#define CZ_SHAREDPTR_STACKTRACES 0
 #include "crazygaze/core/SharedPtr.h"
 #include "crazygaze/core/LocalSharedPtr.h"
 #include "crazygaze/core/FNVHash.h"
