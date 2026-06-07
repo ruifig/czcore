@@ -166,9 +166,9 @@ namespace details
 			WeakRef
 		};
 
-		explicit SharedPtrTrace(Type type, TraceList* outer)
+		explicit SharedPtrTrace(Type type, std::shared_ptr<TraceList> inOuter)
 			: type(type)
-			, outer(outer)
+			, outer(std::move(inOuter))
 		{
 			if (outer)
 			{
@@ -189,7 +189,11 @@ namespace details
 		std::chrono::high_resolution_clock::time_point timestamp;
 		uint64_t frame;
 		std::stacktrace trace;
-		TraceList* outer = nullptr;
+
+		// Sounds a bit stupid to use a shared_ptr, but it solves solve problems related to the lifetime of the TraceList and control block
+		// I initially had a `std::unique_ptr<TraceList>` in the control block, but that approach had some issues for when the control
+		// block was released.
+		std::shared_ptr<TraceList> outer;
 	};
 
 #endif
@@ -409,12 +413,17 @@ namespace details
 		#if CZ_SHAREDPTR_STACKTRACES
 		std::unique_ptr<SharedPtrTrace> createStackTrace(SharedPtrTrace::Type type)
 		{
-			if (traces)
+			// If it's the creation trace (aka first trace), then we want to create the TraceList
+			if (type == SharedPtrTrace::Type::Creation)
+				return std::unique_ptr<SharedPtrTrace>(new SharedPtrTrace(type, std::make_shared<TraceList>()));
+
+			// If we have the first trace, it means we want to capture stack traces
+			if (firstTrace)
 			{
 				ZoneScoped;
 				// Using `new` instead of make_unique, so `std::make_unique` doesn't show up in the stacktrace.
 				// This makes it easier for tools by allowing them to skip all the frames at the top that start with `cz::`
-				return std::unique_ptr<SharedPtrTrace>(new SharedPtrTrace(type, traces.get()));
+				return std::unique_ptr<SharedPtrTrace>(new SharedPtrTrace(type, firstTrace->outer));
 			}
 			else
 			{
@@ -426,9 +435,9 @@ namespace details
 		{
 			SharedPtrTraces res;
 
-			if (traces)
+			if (firstTrace)
 			{
-				traces->visitAll([&res](const SharedPtrTrace* ele)
+				firstTrace->outer->visitAll([&res](const SharedPtrTrace* ele)
 				{
 					SharedPtrTraces::Entry entry{ele->timestamp, ele->frame, ele->trace};
 					if (ele->type == SharedPtrTrace::Type::Creation)
@@ -454,9 +463,6 @@ namespace details
 		friend void* allocSharedPtrBlock();
 
 		#if CZ_SHAREDPTR_STACKTRACES
-		// Intentionally putting this in a unique_ptr, so it's out of the same cache line, and it's not loaded every time
-		// we need to dereference a SharedPtr/WeakPtr.
-		std::unique_ptr<TraceList> traces;
 		std::unique_ptr<SharedPtrTrace> firstTrace; // The trace when the control block was created.
 		#endif
 
@@ -612,7 +618,6 @@ namespace details
 		#if CZ_SHAREDPTR_STACKTRACES
 		if (details::shouldCaptureStackTraces<T>())
 		{
-			control->traces = std::make_unique<TraceList>();
 			control->firstTrace = control->createStackTrace(SharedPtrTrace::Type::Creation);
 		}
 		#endif

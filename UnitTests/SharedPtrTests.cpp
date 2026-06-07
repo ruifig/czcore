@@ -1061,10 +1061,20 @@ TEST_CASE("EnableSharedFromThis", "[SmartPointers]")
 
 TEST_CASE("releaseIfOne", "[SmartPointers]")
 {
+	CHECK(Base::alive == 0);
 	Ptr<Foo> foo = cz::details::basicMakeShared<Foo, THREADSAFE>();
+	Ptr<Foo> foo2 = foo;
+	CHECK(Base::alive == 1);
 
-	foo.resetIfLast();
+	CHECK(foo.resetIfUnique() == false);
+	CHECK(Base::alive == 1);
+	CHECK(foo.use_count() == 2);
 
-
+	foo2 = nullptr;
+	// Now `foo` should be the last owner, so resetIfUnique should succeed and delete the object
+	CHECK(foo.use_count() == 1);
+	CHECK(foo.resetIfUnique() == true);
+	CHECK(foo.use_count() == 0);
+	CHECK(Base::alive == 0);
 
 }
