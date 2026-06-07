@@ -167,7 +167,10 @@ uint32_t getNumPhysicalCores()
 	DWORD byteOffset = 0;
 	PCACHE_DESCRIPTOR Cache;
 
+	#pragma warning(push)
+	#pragma warning(disable: 4191)
 	glpi = (LPFN_GLPI)GetProcAddress(GetModuleHandle(TEXT("kernel32")), "GetLogicalProcessorInformation");
+	#pragma warning(pop)
 
 	//#define dolog printf
 	#define dolog
@@ -180,7 +183,7 @@ uint32_t getNumPhysicalCores()
 
 	while (!done)
 	{
-		DWORD rc = glpi(buffer, &returnLength);
+		DWORD rc = static_cast<DWORD>(glpi(buffer, &returnLength));
 
 		if (FALSE == rc)
 		{
