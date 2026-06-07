@@ -10,7 +10,7 @@ struct WrongBase
 
 #define THREADSAFE 1
 
-bool gCaptureStackTraces = false;
+bool gCaptureStackTraces = true;
 
 struct Base :
 #if THREADSAFE
@@ -1059,3 +1059,12 @@ TEST_CASE("EnableSharedFromThis", "[SmartPointers]")
 
 }
 
+TEST_CASE("releaseIfOne", "[SmartPointers]")
+{
+	Ptr<Foo> foo = cz::details::basicMakeShared<Foo, THREADSAFE>();
+
+	foo.resetIfLast();
+
+
+
+}

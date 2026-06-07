@@ -206,6 +206,9 @@ namespace details
 	 * bool inc_nz()
 	 *		Increments the value if the current value is not zero and returns true.
 	 *		It returns false if the current value is zero.
+	 * bool dec_if_one()
+	 *		Decrements the value if the current value is one and returns true.
+	 *		If the current value is not one, it does nothing and returns false.
 	 */
 	template<bool ThreadSafe>
 	class RefCounter
@@ -261,6 +264,19 @@ namespace details
 				return true;
 			}
 		}
+
+		bool dec_if_one() noexcept
+		{
+			if (m_value._Storage._Value == 1)
+			{
+				--m_value._Storage._Value;
+				return true;
+			}
+			else
+			{
+				return false;
+			}
+		}
 	};
 
 	/**
@@ -310,6 +326,30 @@ namespace details
 				}
 			}
 
+			return false;
+		}
+
+		bool dec_if_one()
+		{
+			uint32_t n = count();
+
+			while (n != 0)
+			{
+				if (n == 1)
+				{
+					if (m_value.compare_exchange_weak(n, 0, std::memory_order_acq_rel, std::memory_order_relaxed))
+					{
+						// We managed to decrement the counter from 1 to 0, which means from this point on no other threads will
+						// cause it to go to 1 again.
+						return true;
+					}
+				}
+				else
+				{
+					// The value is not 1, so we don't want to decrement it.
+					return false;
+				}
+			}
 			return false;
 		}
 	};
@@ -498,6 +538,22 @@ namespace details
 			{
 				this->deleteObj();
 				decWeak();
+			}
+		}
+
+		bool decStrongIfOne()
+		{
+			assert(this->strong.count() > 0);
+
+			if (this->strong.dec_if_one())
+			{
+				this->deleteObj();
+				decWeak();
+				return true;
+			}
+			else
+			{
+				return false;
 			}
 		}
 

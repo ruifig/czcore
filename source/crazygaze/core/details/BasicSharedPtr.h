@@ -182,6 +182,10 @@ class BasicSharedPtr
 		return m_control.ctrl ? m_control.ctrl->weakRefs() : 0;
 	}
 
+	/**
+	 * This is not safe when multiple threads are involved, since another thread might be holding weak pointers, which can get promoted
+	 * to shared pointers at any time.
+	 */
 	bool unique() const noexcept
 	{
 		return use_count() == 1;
@@ -190,6 +194,26 @@ class BasicSharedPtr
 	void reset() noexcept
 	{
 		m_control.release();
+	}
+
+	/**
+	 * Deletes the managed object if this is the last shared pointer owning it.
+	 * If there are other shared pointers owning the same object, then this does nothing.
+	 *
+	 * This can be useful to manually control when the object gets destroyed, which can be important in some cases, e.g, when the
+	 * destructor needs to be called on a specific thread. That can be achieved by keeping the object alive with one SharedPtr,
+	 * and then calling resetIfLast on the thread you want the destructor to run on, which will cause the destructor to run on
+	 * that thread if it's the last SharedPtr, or do nothing if there are other SharedPtrs still alive.
+	 *
+	 * Not that this is NOT the same as checking `use_count() == 1`. Even if `use_count() == 1` is true, it can still be the case
+	 * that there are other threads holding weak pointers, which can promote to shared pointers at any time, so it's not safe to
+	 * call `reset()` in that case. This function handles that case correctly.
+	 *
+	 * @return true if the object was deleted (or the shared pointer was already empty), false if not.
+	 */
+	bool resetIfLast() noexcept
+	{
+		return m_control.releaseIfOne();
 	}
 
 	void swap(BasicSharedPtr& other) noexcept
@@ -284,6 +308,30 @@ class BasicSharedPtr
 				ctrl->decStrong();
 				ctrl = nullptr;
 			}
+		}
+
+		bool releaseIfOne()
+		{
+			if (ctrl)
+			{
+				// This needs to be different from what we do in release(), because we should only destroy the trace IF the release actually happens.
+				#if CZ_SHAREDPTR_STACKTRACES
+				auto savedTrace = std::move(trace);
+				#endif
+
+				if (ctrl->decStrongIfOne())
+				{
+					ctrl = nullptr;
+					return true;
+				}
+
+				#if CZ_SHAREDPTR_STACKTRACES
+				// The release didn't happen , so we need to put the trace back, since the control block is still alive.
+				trace = std::move(savedTrace);
+				#endif
+			}
+
+			return false;
 		}
 	} m_control;
 };
