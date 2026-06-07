@@ -55,7 +55,6 @@ struct LogMessage
 	uint64_t frame = std::numeric_limits<uint64_t>::max();
 	std::string msg;
 	std::string timestamp;
-	std::string context;
 	std::string formattedMsg;
 };
 
@@ -151,18 +150,6 @@ void setLogSettings(std::string_view logSettings);
 
 } // namespace cz
 
-/**
- * This is used by CZ_LOG to add some context to the log message.
- * Any classes using CZ_LOG can implement this function in their scope so logging shows whatever prefix is desired. E.g, the name
- * of the class or class instance.
- *
- * Note that any code implementing it's own `getCZLOGPrefix` can use a different signature. All that is necessary is that it returns a string-like object.
- */
-inline std::string_view getCZLOGContext()
-{
-	return "";
-}
-
 #define CZ_LOG_CHECK_COMPILETIME_LEVEL(name, verbosity) \
 	(((int)::cz::LogLevel::verbosity <= (int)LogCategory##name::CompileTimeLevel) && \
 	 ((int)::cz::LogLevel::verbosity <= (int)::cz::details::compileTimeMaxLogLevel))
@@ -177,7 +164,6 @@ inline std::string_view getCZLOGContext()
 				_cz_internal_msg.category = &log##name;                                                        \
 				_cz_internal_msg.frame = ::cz::gFrameCounter.load();                                           \
 				_cz_internal_msg.level = ::cz::LogLevel::logLevel;                                             \
-				_cz_internal_msg.context = getCZLOGContext();                                                  \
 				_cz_internal_msg.msg = std::format(fmtStr, ##__VA_ARGS__);                                     \
 				::cz::details::logMessage(debuggerOutput, _cz_internal_msg);                                   \
 			}                                                                                                  \

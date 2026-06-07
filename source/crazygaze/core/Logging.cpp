@@ -67,9 +67,9 @@ void logMessage(bool debuggerOutput, LogMessage& msg)
 
 	// Only include frame number if the application is making use of it
 	if (msg.frame == std::numeric_limits<uint64_t>::max())
-		msg.formattedMsg = std::format("{}:{}:{}:{}{}\n", msg.timestamp, msg.category->getName(), msg.level, msg.context, msg.msg);
+		msg.formattedMsg = std::format("{}:{}:{}:{}\n", msg.timestamp, msg.category->getName(), msg.level, msg.msg);
 	else
-		msg.formattedMsg = std::format("{}[{}]:{}:{}:{}{}\n", msg.timestamp, msg.frame, msg.category->getName(), msg.level, msg.context, msg.msg);
+		msg.formattedMsg = std::format("{}[{}]:{}:{}:{}\n", msg.timestamp, msg.frame, msg.category->getName(), msg.level, msg.msg);
 
 	if (LogOutputs* logs = LogOutputs::tryGet())
 	{
