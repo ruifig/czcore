@@ -19,7 +19,7 @@ class BasicSharedRef;
  *
  *	- The control block is ALWAYS allocated together with the object, therefore it doesn't allow using SharedPtr with objects that were allocated in a different way.
  *		- Allocation should be done with the "makeShared" helper functions.
- * - Casts when multiple inheritance are problematic. You might end up with heap corruption.
+ * - Casts when using multiple inheritance are problematic. You might end up with heap corruption.
  * - Doesn't provide all the functions and operators std::shared_ptr provides.
  * - Custom deleters can be supported by defining a "SharedPtrDeleter" type in your class.
  * For example:
