@@ -93,12 +93,18 @@ class File
 	static std::unique_ptr<File> try_open(const fs::path& path, Mode mode);
 
 	size_t write(const void* buffer, size_t size, size_t count);
-	size_t read(void* buffer, size_t size, size_t count);
 	size_t write(const void* buffer, size_t bytes);
+	size_t write(std::string_view str)
+	{
+		return write(str.data(), str.size());
+	}
+
+	size_t read(void* buffer, size_t size, size_t count);
 	size_t read(void* buffer, size_t bytes);
 	bool eof() const;
 	size_t tell() const;
 	bool seek(size_t offset, SeekMode seekMode);
+
 
 	size_t size();
 
