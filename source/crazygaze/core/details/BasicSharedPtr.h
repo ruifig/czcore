@@ -738,19 +738,7 @@ class BasicEnableSharedFromThis
 	 */
 	BasicSharedPtr<const T, MT> sharedFromThis() const
 	{
-		const T* derivedThis = static_cast<const T*>(this);
-		void* rawPtr = reinterpret_cast<uint8_t*>(const_cast<T*>(derivedThis)) - sizeof(typename BasicSharedPtr<T, MT>::ControlBlock);
-		auto ctrl = reinterpret_cast<typename BasicSharedPtr<T, MT>::ControlBlock*>(rawPtr);
-
-		if (ctrl->lockStrong())
-		{
-			return BasicSharedPtr<const T, MT>::createFromAlreadyAcquiredBlock(ctrl);
-		}
-		else
-		{
-			CZ_CHECK(false);
-			return {};
-		}
+		return const_cast<BasicEnableSharedFromThis*>(this)->sharedFromThis();
 	}
 
 	/**
