@@ -583,3 +583,38 @@ inline std::array<char, 5> codepointToUtf8(uint32_t cp)
 	utf8::unchecked::append(cp, result.begin());
 	return result;
 }
+
+
+/**
+ * Utility that allows iterating through the code points of a UTF8 string easily.
+ * Use as:
+ * 
+ * ```
+ * for(uint32_t cp : Utf8CodePoints(myUtf8String))
+ * {
+ *     // process code point
+ * }
+ * ```
+ *
+ * It doesn't check if the string is valid UTF8, so use it only with valid UTF8 strings.
+ * If you want to check if a string is valid UTF8, use `utf8::is_valid()`.
+ *
+ */
+struct Utf8CodePoints
+{
+	std::string_view text;
+
+	using BaseIt = std::string_view::const_iterator;
+	using Iterator = utf8::unchecked::iterator<BaseIt>;
+
+	Iterator begin() const
+	{
+		return Iterator(text.begin());
+	}
+
+	Iterator end() const
+	{
+		return Iterator(text.end());
+	}
+};
+
