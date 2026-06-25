@@ -70,6 +70,9 @@
 	__pragma(warning(disable: 4996)) /* 'function': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details. */
 	__pragma(warning(disable: 5311)) /* A literal-operator-id of the form 'operator string-literal identifier' has been deprecated */
 	__pragma(warning(disable: 4686)) /* 'user-defined type' : possible change in behavior, change in UDT return calling convention */
+	__pragma(warning(disable: 4263)) /* 'function' : member function does not override any base class virtual member function */
+	__pragma(warning(disable: 4264)) /* 'virtual_function' : no override available for virtual member function from base 'class'; function is hidden */
+
 #else
 
 #endif
