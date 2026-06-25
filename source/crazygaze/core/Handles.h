@@ -16,7 +16,7 @@
  * `HandleImpl<T, DataType>` provides a lightweight reference to an object of type `T`
  * stored in a static `HandleStorage<T, DataType>`.
  *
- * It is named `HandleImpl` instead of `Handle`, since user code will probably want to typedef it use a specific data type, and so that avoid confusion with the name.
+ * It is named `HandleImpl` instead of `Handle`, since user code will probably want to typedef it use a specific data type, and so that avoids confusion with the name.
  * E.g:
  * ````
  *		// My application handles use uint32_t
