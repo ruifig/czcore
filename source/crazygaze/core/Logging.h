@@ -218,6 +218,8 @@ void setLogSettings(std::string_view logSettings);
 	#define CZ_VERIFY_SLOW_F(expr, format, ...) {if(expr) {}}
 #endif
 
+#define CZ_UNEXPECTED() CZ_LOG(Main, Fatal, "Unexpected code path. {}:{}", __FILE__, __LINE__)
+
 /**
  * The "ALWAYS" versions do the checks in all build configurations. They are never compiled out.
  * They should be used for checks that are critical and should never be skipped even in release builds.
