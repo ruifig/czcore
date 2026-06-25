@@ -7,12 +7,12 @@ namespace cz
  * Based on Herb Sutters's Monitor<T> class.
  * It protects all access to an object
  */
-template <class T>
+template <typename T, typename Mutex = std::mutex>
 class Monitor
 {
 private:
 	mutable T m_t;
-	mutable std::mutex m_mtx;
+	mutable Mutex m_mtx;
 
 public:
 	using Type = T;
@@ -21,7 +21,7 @@ public:
 	template <typename F>
 	auto operator()(F f) const -> decltype(f(m_t))
 	{
-		std::lock_guard<std::mutex> hold{ m_mtx };
+		std::lock_guard<Mutex> hold{ m_mtx };
 		return f(m_t);
 	}
 };

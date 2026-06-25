@@ -226,6 +226,12 @@ public:
  */
 bool saveTextFile(const fs::path& path, std::string_view contents, bool saveOnlyIfChanged);
 
+/**
+ * Saves the specified data to a file.
+ * If the file exists is is overwritten.
+ */
+bool saveBinaryFile(const fs::path& path, const std::span<uint8_t> data);
+
  /**
   * Given a filename (full path), it checks if the file exists and if it does, it renames it so that the name
   * contains the time the file was last modified.

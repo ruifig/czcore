@@ -209,6 +209,21 @@ bool saveTextFile(const fs::path& path, std::string_view contents, bool saveOnly
 	return out->write(tmp.data(), tmp.size()) == 1 ? true : false;
 }
 
+bool saveBinaryFile(const fs::path& path, const std::span<uint8_t> data)
+{
+	std::unique_ptr<File> out = File::open(path, File::Mode::Write);
+	if (!out)
+	{
+		return false;
+	}
+
+	size_t done = out->write(data.data(), data.size());
+	if (done == 1 || data.size() == 0)
+		return true;
+	else
+		return false;
+}
+
 namespace
 {
 
