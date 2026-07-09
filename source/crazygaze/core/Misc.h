@@ -30,6 +30,13 @@
 		return a;                                                        \
 	}                                                                    \
                                                                          \
+	constexpr Enum operator~(Enum a) noexcept                            \
+	{                                                                    \
+		using U = std::underlying_type_t<Enum>;                          \
+		a = static_cast<Enum>(~static_cast<U>(a));                       \
+		return a;                                                        \
+	}                                                                    \
+                                                                         \
 	constexpr bool any(Enum mask) noexcept                               \
 	{                                                                    \
 		using U = std::underlying_type_t<Enum>;                          \
