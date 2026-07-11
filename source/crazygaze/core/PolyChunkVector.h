@@ -23,12 +23,12 @@ namespace cz
  *   It then allows storing any type derived from `T`.
  * - Types can be polymorphic
  * - Once created, objects are never moved. This means that pointers/references to objects remain valid until the container is destroyed or cleared.
- *   This is implemented by allocating memory in chunks. When once chunk is exhausted, it allocates another chunk.
+ *   This is implemented by allocating memory in chunks. When one chunk is exhausted, it allocates another chunk.
  * - Objects can't be removed. The only way to remove objects is to clear the entire container.
  * - Allows inserting oob (out of band) data alongside the objects.
  *   - This is useful for storing variable size data alongside objects, e.g., strings or arrays, which can improve cache locality.
  *
- * The best use case for this container is to create cache friend command queues.
+ * The best use case for this container is to create cache friendly command queues.
  *
  * When constructed, no memory is allocated until the first object is added.
  * To do a "reserve" similar to what std containers do, use `clear` with the `resetToSingleChunk` parameter after construction.
@@ -253,7 +253,7 @@ class PolyChunkVector
 	 * Clears the container, calling destructors of all stored objects.
 	 *
 	 * @param resetToSingleChunk
-	 *	If non-zero, after clearing the container, it deallocates all chunks creates a single chunk with this value as it's capacity.
+	 *	If non-zero, after clearing the container, it deallocates all chunks and creates a single chunk with this value as it's capacity.
 	 *	This can be useful for e.g a game that clear the container every frame. E.g:
 	 *		- The game starts with some default chunk capacity
 	 *		- As objects are added, the container grows and allocated more chunks.
