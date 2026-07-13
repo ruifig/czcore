@@ -44,9 +44,16 @@
 	}
 
 
-
 namespace cz
 {
+
+/**
+ * Utility template that is always false, but depends on a type. This is useful for static_asserts in templates, where you want to
+ * fail the compilation if a certain condition is met, but only for certain types.
+ */
+template <typename T>
+struct always_false : std::false_type {};
+
 
 /**
  * Helper that allows searching a container of smart pointers of T by a raw pointer
