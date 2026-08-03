@@ -195,10 +195,10 @@ namespace details
 					uint64_t extra : 63;
 
 					// NOTE: Intentionally using the term `free` instead of `used`, so that when `free` is 0, it means we can treat the entire thing as the handle value,
-					// which speeds up comparisons (no need to bit fiddling to validate the handle).
+					// which speeds up comparisons (no need for bit fiddling to validate the handle).
 					//
 					// With that in mind we have:
-					// - If `free` is 0, then `meta` has handle's value, and we cal just compare `all` against the handle value.
+					// - If `free` is 0, then `meta` has handle's value, and we just compare `all` against the handle value.
 					// - If `free` is 1, then `meta` has the index to the next free slot
 					uint64_t free : 1;
 				} bits;
