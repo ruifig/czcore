@@ -84,7 +84,7 @@
  * - the generation counter matches the entry currently occupying that slot
  *
  * `tryGetObj()` returns `nullptr` if validation fails.
- * `getObj()` and `operator->()` assert on invalid access.
+ * `getObj()` and `operator->()` assert if validaton fails.
  *
  * ## Important caveats
  *

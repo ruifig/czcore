@@ -22,6 +22,7 @@
 #include <span>
 #include <stacktrace>
 #include <numeric>
+#include <bitset>
 
 CZ_THIRD_PARTY_INCLUDES_START
 #include "utf8.h"

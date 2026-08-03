@@ -16,6 +16,8 @@ set(ALL_FILES
 	"crazygaze/core/File.h"
 	"crazygaze/core/FixedHeapArray.h"
 	"crazygaze/core/FNVHash.h"
+	"crazygaze/core/UUID.cpp"
+	"crazygaze/core/UUID.h"
 	"crazygaze/core/Handles.h"
 	"crazygaze/core/IniFile.cpp"
 	"crazygaze/core/IniFile.h"

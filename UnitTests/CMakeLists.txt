@@ -11,6 +11,7 @@ set(ALL_FILES
 	"StringUtilsTests.cpp"
 	"TaggedPtrTests.cpp"
 	"TestUtils.h"
+	"UUIDTests.cpp"
 	"VSOVEctorTests.cpp"
 )
 
