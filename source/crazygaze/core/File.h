@@ -153,11 +153,14 @@ class File
 
 		Buffer& operator=(Buffer&& other)
 		{
-			free(ptr);
-			ptr = other.ptr;
-			size = other.size;
-			other.ptr = nullptr;
-			other.size = InvalidSize;
+			if (this != &other)
+			{
+				free(ptr);
+				ptr = other.ptr;
+				size = other.size;
+				other.ptr = nullptr;
+				other.size = InvalidSize;
+			}
 			return *this;
 		}
 
