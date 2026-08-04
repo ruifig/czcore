@@ -45,6 +45,14 @@ class CommandLine : public Singleton<CommandLine>
 	bool init(int argc, char* argv[]);
 
 	/**
+	 * Returns the Nth argument as passed in `init`.
+	 * This is just for systems that might want to check the original command line, without any processing.
+	 *
+	 * If `n` is outside the valid range, it will return an empty string
+	 */
+	std::string getRawArgN(uint32_t n);
+
+	/**
 	 * Returns the first parameter. Makes it possible to use range based for loops
 	 * If there are no parameters, dereferencing this is undefined behavior.
 	 */

@@ -90,6 +90,14 @@ bool CommandLine::init(int argc, char* argv[])
 	return errorCount == 0 ? true : false;
 }
 
+std::string CommandLine::getRawArgN(uint32_t n)
+{
+	if (n < m_original.size())
+		return m_original[n];
+	else
+		return "";
+}
+
 bool CommandLine::has(std::string_view name, bool ignoreCase) const
 {
 	return getParam(name, ignoreCase) == nullptr ? false : true;
