@@ -571,6 +571,11 @@ class HandleImpl
 		return tryGetObj() ? true : false;
 	}
 
+	operator bool() const
+	{
+		return isValid();
+	}
+
 	T& getObj()
 	{
 		return getObjImpl();
