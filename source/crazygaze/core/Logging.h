@@ -14,6 +14,21 @@ namespace cz
  */
 extern std::atomic<uint64_t> gFrameCounter;
 
+
+/**
+ * Utility to put inside singleton "tick" functions. It detects if we are ticking
+ * a singleton more than once per frame.
+ * These kind of bugs can easily happen when an application has e.g "app layers", and
+ * they each tick singletons. 
+ */
+#define CHECK_ONE_TICK_PER_FRAME()                                          \
+	static uint64_t s_lastTickFrame = std::numeric_limits<uint64_t>::max(); \
+	if (s_lastTickFrame == gFrameCounter.load())                            \
+	{                                                                       \
+		CZ_CHECK(false);                                                    \
+	}                                                                       \
+	s_lastTickFrame = gFrameCounter.load();
+
 enum class LogLevel
 {
 	Off,
