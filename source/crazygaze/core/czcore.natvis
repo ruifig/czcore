@@ -94,8 +94,8 @@
 
   <Type Name="cz::HandleImpl&lt;*&gt;">
     <Intrinsic Name="storage_size" Expression="(size_t)(storage.data._Mypair._Myval2._Mylast - storage.data._Mypair._Myval2._Myfirst)" />
-    <Intrinsic Name="is_valid" Expression="(bool)(meta.all &amp;&amp; meta.bits.idx &lt; storage_size())" />
     <Intrinsic Name="entry" Expression="storage.data._Mypair._Myval2._Myfirst[meta.bits.idx]" />
+    <Intrinsic Name="is_valid" Expression="(bool)(meta.all &amp;&amp; meta.bits.idx &lt; storage_size() &amp;&amp; meta.all == entry().meta.all)" />
     <Intrinsic Name="value" Expression="*(pointer)(storage.data._Mypair._Myval2._Myfirst[meta.bits.idx].buf)" />
 
     <DisplayString Condition="meta.all == 0">Empty</DisplayString>

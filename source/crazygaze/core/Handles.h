@@ -206,6 +206,7 @@ namespace details
 				uint64_t all = std::numeric_limits<uint64_t>::max();
 			};
 		} meta;
+		uint8_t alignas(alignof(T)) buf[sizeof(T)];
 
 		static_assert(sizeof(Meta) == sizeof(uint64_t));
 
@@ -252,8 +253,6 @@ namespace details
 				moveFrom(std::move(other));
 			return *this;
 		}
-
-		uint8_t alignas(alignof(T)) buf[sizeof(T)];
 
 		T& getValue()
 		{
@@ -540,7 +539,6 @@ namespace details
 		ConstIterator cbegin() const { return ConstIterator(this, 0); }
 		ConstIterator cend() const { return ConstIterator(this, data.size()); }
 
-
 		std::vector<HandleEntry<T>> data;
 		uint32_t nextFree;
 		uint32_t counter;
@@ -549,21 +547,64 @@ namespace details
 
 } // namespace details
 
+
 template<typename T, typename DataType>
-class HandleImpl
+class BaseHandleImpl
 {
+
+  protected:
+	static inline details::HandleStorage<T, DataType> storage;
+};
+
+/**
+ *
+ * T : What type the handles point to 
+ * DataType : What type to use (uint32_t/uint64_t) for the handle's internals.
+ * ObserverOnly :
+ *	- If true, then handles of this type allow operating on T, but can't create or destroy T.
+ *	  It's handy to set this to true for APIs that want to give the user handles to T that should only be created/destroyed.
+ *	  This is just a small help to make the intended use explicit (as-in user should create/destroy Ts), but doesn't completely
+ *	  enforce it, since the implementation details are still available for the most part
+ *	- If false, then allows the full set of operations.
+ */
+template<typename T, typename DataType, bool ObserverOnly = false>
+class HandleImpl : public BaseHandleImpl<T, DataType>
+{
+  protected:
+	details::HandleMeta<DataType> meta;
+	template<typename A, typename B, bool C> friend class HandleImpl;
+
   public:
 	using pointer = T*;
 
-	static inline details::HandleStorage<T, DataType> storage;
+	// Returns the storage for all Ts.
+	// This is made public, so the user can make queries the entire storage.
+	// WARNING: USE WITH CARE
+	static details::HandleStorage<T, DataType>& getStorage()
+	{
+		return BaseHandleImpl<T, DataType>::storage;
+	}
 
-	details::HandleMeta<DataType> meta;
-
+	/**
+	 * Creates a new T and returns the handle.
+	 */
 	template<typename... Args>
-	static HandleImpl<T, DataType> create(Args&&... args)
+	static HandleImpl<T, DataType> create(Args&&... args) requires !ObserverOnly
 	{
 		using HandleType = HandleImpl<T, DataType>;
 		return createImpl<HandleType>(std::forward<Args>(args)...);
+	}
+
+	HandleImpl() = default;
+	HandleImpl(const HandleImpl<T, DataType, false>& other)
+		: meta(other.meta)
+	{
+	}
+
+	HandleImpl& operator=(const HandleImpl& other)
+	{
+		meta = other.meta;
+		return *this;
 	}
 
 	bool isValid() const
@@ -606,12 +647,16 @@ class HandleImpl
 		return &getObj();
 	}
 
-	void release()
+	/**
+	 * Destroys the T it points to and clears the handle.
+	 * Any handles still pointing to this T will them be invalid.
+	 */
+	void release() requires !ObserverOnly
 	{
 		if (meta.all == 0)
 			return;
 
-		storage.destroy(meta);
+		getStorage().destroy(meta);
 		meta.all = 0;
 	}
 
@@ -625,7 +670,7 @@ class HandleImpl
 	static HandleType createImpl(Args&&... args)
 	{
 		HandleType res;
-		res.meta.all = storage.create(std::forward<Args>(args)...);
+		res.meta.all = getStorage().create(std::forward<Args>(args)...);
 		return res;
 	}
 
@@ -639,9 +684,9 @@ class HandleImpl
 
 	T* tryGetObjImpl() const
 	{
-		if (meta.all && (meta.bits.idx < storage.data.size()))
+		if (meta.all && (meta.bits.idx < getStorage().data.size()))
 		{
-			details::HandleEntry<T>& e = storage.data[meta.bits.idx];
+			details::HandleEntry<T>& e = getStorage().data[meta.bits.idx];
 			return e.meta.all == meta.all ? &e.getValue() : nullptr;
 		}
 		else
