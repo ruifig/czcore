@@ -62,7 +62,7 @@ TEMPLATE_TEST_CASE("Handles", "[Handles]", uint32_t, uint64_t)
 
 		// non-const
 		size_t idx = 0;
-		for(HandleFoo& f : HT::storage)
+		for(HandleFoo& f : HT::getStorage())
 		{
 			CHECK(f.id == expectedIds[idx]);
 			idx++;
@@ -70,7 +70,7 @@ TEMPLATE_TEST_CASE("Handles", "[Handles]", uint32_t, uint64_t)
 
 		// const
 		idx = 0;
-		for(const HandleFoo& f : (const decltype(HT::storage)&)HT::storage)
+		for(const HandleFoo& f : (const decltype(HT::getStorage())&)HT::getStorage())
 		{
 			CHECK(f.id == expectedIds[idx]);
 			idx++;
@@ -88,6 +88,32 @@ TEMPLATE_TEST_CASE("Handles", "[Handles]", uint32_t, uint64_t)
 	// Now insert a fresh one into a non-existing slot, to see if freeNext works propertly
 	HT h4 = HT::create("Handle 4");
 	CHECK(h4.isValid());
+
+	// Test "observer" handles
+	{
+		using HTObs = HandleImpl<HandleFoo, TestType, true>;
+		HTObs o;
+		CHECK(!o.isValid());
+
+		HT hh = HT::create("Handle 998");
+		o = hh;
+		// NOTE: Put a breakpoint here to test if the natvis is working correctly.
+		// - `o` and `hh` should show the same T
+		CHECK(o.isValid());
+
+		hh.release();
+		// NOTE: Put a breakpoint here to test if the natvis is working correctly.
+		// - `o` should now show `Invalid`, since the T it points to was destroyed.
+		// - `hh` should show "Empty"
+		CHECK(!o.isValid());
+
+		hh = HT::create("Handle 999");
+		// NOTE: Put a breakpoint here to test if the natvis is working correctly.
+		// - `o` should still show `Invalid`, since the T it tries to point to is the old one we destroyed
+		// - `hh` should now show the new T
+		CHECK(!o.isValid());
+	}
+
 }
 
 
