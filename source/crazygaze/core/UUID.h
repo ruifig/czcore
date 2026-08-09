@@ -104,3 +104,11 @@ namespace std
 	};
 }
 
+template<>
+struct std::formatter<cz::UUID> : public std::formatter<std::string_view>
+{
+	auto format(const cz::UUID& v, std::format_context& ctx) const
+	{
+		return std::format_to(ctx.out(), "{}", toString(v));
+	}
+};
