@@ -14,6 +14,11 @@
 namespace cz
 {
 
+UUID::UUID(std::string_view str)
+{
+	fromString(str, *this);
+}
+
 UUID UUID::create()
 {
 	static_assert(sizeof(UUID) == 4*4);

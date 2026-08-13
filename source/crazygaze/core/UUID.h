@@ -47,6 +47,12 @@ public:
 	{
 	}
 
+	/**
+	 * Constructs a UUID from a string.
+	 * It automatically detects the string format.
+	 */
+	explicit UUID(std::string_view str);
+
 	static UUID create();
 
 	bool operator==(const UUID& other) const
