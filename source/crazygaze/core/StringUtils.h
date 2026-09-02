@@ -472,9 +472,15 @@ bool fromString(std::string_view str, T& dst)
 	return std::from_chars(str.data(), str.data() + str.length(), dst).ec == std::errc();
 }
 
+/**
+ * Converts a string to some integral T
+ *
+ * If `base` is left at 0, it will look for a prefix such as `0x` and use base 16, or 10 if the prefix doesn't exist.
+ * If base is specified as e.g `16`, it will interpret the string as that.
+ */
 template<typename T>
 requires std::is_integral_v<T>
-bool fromString(std::string_view str, T& dst)
+bool fromString(std::string_view str, T& dst, int base = 0)
 {
 	if constexpr (std::is_same_v<T, bool>)
 	{
@@ -495,10 +501,20 @@ bool fromString(std::string_view str, T& dst)
 	}
 	else
 	{
-		if (str.size()>2 && (str[0] == '0' && (str[1] == 'x' || str[1] == 'X')))
-			return std::from_chars(str.data() + 2, str.data() + str.length(), dst, 16).ec == std::errc();
-		else
-			return std::from_chars(str.data(), str.data() + str.length(), dst).ec == std::errc();
+		if (base == 0)
+		{
+			if (str.size()>2 && (str[0] == '0' && (str[1] == 'x' || str[1] == 'X')))
+			{
+				str = std::string_view(str.begin() + 2, str.end());
+				base = 16;
+			}
+			else
+			{
+				base = 10;
+			}
+		}
+
+		return std::from_chars(str.data(), str.data() + str.length(), dst, base).ec == std::errc();
 	}
 }
 
@@ -525,6 +541,16 @@ std::string toString(const T& val)
 	return std::format("{}", val);
 }
 
+/**
+ * Converts an integral T to an hexadecimal string with leading zeros
+ */
+template<typename T>
+	requires std::is_integral_v<T>
+std::string toHexString(T val)
+{
+	constexpr std::size_t width = sizeof(T) * 2;
+	return std::format("{:0{}X}", val, width);
+}
 
 /*!
  * Parses a delimited string into an array of values.
