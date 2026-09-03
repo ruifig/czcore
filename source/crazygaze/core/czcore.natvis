@@ -106,4 +106,8 @@
     </Expand>
   </Type>
 
+  <Type Name="cz::UUID">
+    <DisplayString>{values.a,Xb}{values.b,Xb}{values.c,Xb}{values.d,Xb}</DisplayString>
+  </Type>
+
 </AutoVisualizer>
