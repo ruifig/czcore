@@ -1,9 +1,9 @@
 #pragma once
 
-#include "Common.h"
-#include "Logging.h"
-#include "ThreadingUtils.h"
-#include "Algorithm.h"
+#include "crazygaze/core/Common.h"
+#include "crazygaze/core/Logging.h"
+#include "crazygaze/core/ThreadingUtils.h"
+#include "crazygaze/core/Algorithm.h"
 
 /*
 This controls if memory should be cleared when the last strong reference is gone and the object destroyed.
@@ -81,20 +81,10 @@ easier to spot these kind of bugs.
 namespace cz
 {
 
-namespace details
-{
-
-
-	template<class T>
-	bool shouldCaptureStackTraces()
-	{
-		if constexpr (requires(T* p) { T::captureSharedPtrStackTraces(); })
-			return T::captureSharedPtrStackTraces();
-		else
-			return false;
-	}
 
 #if CZ_SHAREDPTR_STACKTRACES
+namespace details
+{
 	/**
 	 * Doubly linked list to keep track of stacktraces
 	 */
@@ -196,7 +186,212 @@ namespace details
 		std::shared_ptr<TraceList> outer;
 	};
 
+} // namespace details
+
 #endif
+
+/**
+ * Used to extract stack traces from SharedPtr and WeakPtr instances
+ */
+struct SharedPtrTraces
+{
+	struct Entry
+	{
+		std::chrono::high_resolution_clock::time_point ts;
+		uint64_t frame;
+		std::stacktrace trace;
+	};
+	
+	/**
+	 * This is the stack trace of when the control block was created.
+	 * This does NOT represent an active reference. It's purpose is to help understand where the object was created,
+	 * even if the original strong reference is gone or even if the object was already destroyed (but there are still weak
+	 * references keeping the control block alive).
+	 */
+	Entry creationTrace;
+	std::vector<Entry> strong;
+	std::vector<Entry> weak;
+};
+
+
+namespace details
+{
+	/**
+	 * Bare minimum needed for the control block that doesn't need to be templated
+	 * This is mostly so we have some bare non-templated functionality to query traces
+	 */
+	class ControlBlockDetails
+	{
+	  public:
+		virtual ~ControlBlockDetails();
+
+		#if CZ_SHAREDPTR_STACKTRACES
+		std::unique_ptr<SharedPtrTrace> createStackTrace(SharedPtrTrace::Type type);
+		SharedPtrTraces getTraces();
+		#endif
+
+	  protected:
+
+		#if CZ_SHAREDPTR_STACKTRACES
+		std::unique_ptr<SharedPtrTrace> firstTrace; // The trace when the control block was created.
+		void* objBasePtr = nullptr; // The application's object pointer
+		#endif
+	};
+}
+
+#if CZ_SHAREDPTR_STACKTRACES
+/**
+ * When CZ_SHAREDPTR_STACKTRACES is `1`, this class is used to keep a record of
+ * all existing control blocks, regardless of their type
+ * 
+ * This allows an application to query what's alive by having a pointer.
+ */
+class SharedPtrRegistry
+{
+  public:
+
+	SharedPtrRegistry() = default;
+	~SharedPtrRegistry() = default;
+
+	static SharedPtrRegistry& get()
+	{
+		static SharedPtrRegistry instance;
+		return instance;
+	}
+
+
+	// These should only be used internally (as-in, user code should not use this)
+	void internal_add(void* objBasePtr, details::ControlBlockDetails* ctrlBlock);
+	void internal_remove(void* objBasePtr);
+
+	/**
+	 * Using this is optional. It lets the application set some tag for an object.
+	 * This can be used for example to add some name to make it easier to search by object name instead of pointer
+	 *
+	 * This would normally be called from object constructor.
+	 *
+	 * IMPORTANT: If `tag` points to some of the object's fields, a call with `setTag(<objPtr>, nullptr)` should
+	 * be made in the object's destructor. This is because in a multithreaded environment, there is a time window
+	 * between the object destruction and the control block destruction. As-in:
+	 * 1. The object gets destroyed (thus causing `tag` to now point to some invalid memory)
+	 * 2. The control block gets destroyed.
+	 *
+	 * Between 1. and 2., some other thread can query the registry and still sees the tag (because the control block still exists),
+	 * but that tag now points to invalid memory.
+	 */
+	void setTag(void* objBasePtr, void* tag);
+
+	/**
+	 * Retrieves the user specified tag.
+	 * `first` is true if the object was found
+	 * `second` is set to the tag if `first` is true
+	 */
+	std::pair<bool, void*> getTag(void* objBasePtr);
+
+	/**
+	 * Helper to retrieve the tag as a specific type.
+	 * All it does is a cast, so use with care
+	 */
+	template<typename T>
+	std::pair<bool, T> getTagAs(void* objBasePtr)
+	{
+		auto [found, tag] = getTag(objBasePtr);
+		if (found)
+			return {true, reinterpret_cast<T>(tag)};
+		else
+			return {false, T{}};
+	}
+
+	/**
+	 * Visits all tracked objects
+	 * The visitor function takes two parameters (the object pointer, and the tag pointer)
+	 * If the visitor returns `true`, the iteration stops.
+	 * 
+	 */
+	template<typename F>
+		requires std::is_invocable_r_v<bool, F, void*, void*>
+	void visitAll(F&& visitor)
+	{
+		auto lk = std::lock_guard(m_mtx);
+		for(auto&& [objBasePtr, info] : m_c)
+		{
+			if (visitor(objBasePtr, info.tag))
+				return;
+		}
+	}
+
+
+	/**
+	 * Visits all tracked objects, and returns the traces for any objects for
+	 * which the visitor returns true
+	 */
+	template<typename F>
+		requires std::is_invocable_r_v<bool, F, void*, void*>
+	std::vector<SharedPtrTraces> getTracesFor(F&& visitor)
+	{
+		std::vector<SharedPtrTraces> res;
+		auto lk = std::lock_guard(m_mtx);
+		for(auto&& [objBasePtr, info] : m_c)
+		{
+			if (visitor(objBasePtr, info.tag))
+				res.push_back(info.ctrBlk->getTraces());
+		}
+
+		return res;
+	}
+
+  protected:
+	std::mutex m_mtx;
+
+	struct Info
+	{
+		details::ControlBlockDetails* ctrBlk = nullptr;
+		void* tag = nullptr;
+	};
+
+	/**
+	 * All the control blocks being tracked
+	 * The key is the object pointer (what the application uses)
+	 */ 
+	std::unordered_map<void*, Info> m_c;
+};
+
+#else
+/**
+ * Dummy implementation for when stack traces are disabled
+ */
+class SharedPtrRegistry
+{
+  public:
+
+	static SharedPtrRegistry& get()
+	{
+		static SharedPtrRegistry instance;
+		return instance;
+	}
+
+	void setTag(void*, void*); { }
+	std::pair<bool, void*> getTag(void*) { return {false, nullptr}; }
+
+	template<typename T>
+	std::pair<bool, T> getTagAs(void* objBasePtr) { return {false, T{}}; }
+};
+
+#endif
+
+namespace details
+{
+
+
+	template<class T>
+	bool shouldCaptureStackTraces()
+	{
+		if constexpr (requires(T* p) { T::captureSharedPtrStackTraces(); })
+			return T::captureSharedPtrStackTraces();
+		else
+			return false;
+	}
+
 
 	/**
 	 * RefCounter implements the following interface:
@@ -361,35 +556,11 @@ namespace details
 
 } // namespace details
 
-/**
- * Used to extract stack traces from SharedPtr and WeakPtr instances
- */
-struct SharedPtrTraces
-{
-	struct Entry
-	{
-		std::chrono::high_resolution_clock::time_point ts;
-		uint64_t frame;
-		std::stacktrace trace;
-	};
-	
-	/**
-	 * This is the stack trace of when the control block was created.
-	 * This does NOT represent an active reference. It's purpose is to help understand where the object was created,
-	 * even if the original strong reference is gone or even if the object was already destroyed (but there are still weak
-	 * references keeping the control block alive).
-	 */
-	Entry creationTrace;
-	std::vector<Entry> strong;
-	std::vector<Entry> weak;
-};
-
-
 namespace details
 {
-
+	
 	template<bool MT>
-	class BaseSharedPtrControlBlock
+	class BaseSharedPtrControlBlock : public ControlBlockDetails
 	{
 	  public:
 
@@ -400,7 +571,7 @@ namespace details
 		{
 		}
 
-		virtual ~BaseSharedPtrControlBlock() = default;
+		~BaseSharedPtrControlBlock() = default;
 
 		template<typename T>
 		T* toObject() noexcept
@@ -410,61 +581,10 @@ namespace details
 
 		virtual void deleteObj() = 0;
 
-		#if CZ_SHAREDPTR_STACKTRACES
-		std::unique_ptr<SharedPtrTrace> createStackTrace(SharedPtrTrace::Type type)
-		{
-			// If it's the creation trace (aka first trace), then we want to create the TraceList
-			if (type == SharedPtrTrace::Type::Creation)
-				return std::unique_ptr<SharedPtrTrace>(new SharedPtrTrace(type, std::make_shared<TraceList>()));
-
-			// If we have the first trace, it means we want to capture stack traces
-			if (firstTrace)
-			{
-				ZoneScoped;
-				// Using `new` instead of make_unique, so `std::make_unique` doesn't show up in the stacktrace.
-				// This makes it easier for tools by allowing them to skip all the frames at the top that start with `cz::`
-				return std::unique_ptr<SharedPtrTrace>(new SharedPtrTrace(type, firstTrace->outer));
-			}
-			else
-			{
-				return nullptr;
-			}
-		}
-
-		SharedPtrTraces getTraces()
-		{
-			SharedPtrTraces res;
-
-			if (firstTrace)
-			{
-				firstTrace->outer->visitAll([&res](const SharedPtrTrace* ele)
-				{
-					SharedPtrTraces::Entry entry{ele->timestamp, ele->frame, ele->trace};
-					if (ele->type == SharedPtrTrace::Type::Creation)
-						res.creationTrace = std::move(entry);
-					else if (ele->type == SharedPtrTrace::Type::StrongRef)
-						res.strong.emplace_back(std::move(entry));
-					else if (ele->type == SharedPtrTrace::Type::WeakRef)
-						res.weak.emplace_back(std::move(entry));
-					else
-					{
-						CZ_CHECK(false);
-					}
-				});
-			}
-
-			return res;
-		}
-		#endif
-
 	  protected:
 
 		template<typename T, bool MT, typename Deleter>
 		friend void* allocSharedPtrBlock();
-
-		#if CZ_SHAREDPTR_STACKTRACES
-		std::unique_ptr<SharedPtrTrace> firstTrace; // The trace when the control block was created.
-		#endif
 
 		RefCounter<MT> strong = 0;
 		// weak is initialized to 1, because it helps resolve a race condition when both weak and strong reach 0
@@ -615,14 +735,18 @@ namespace details
 		void* basePtr = malloc(allocSize);
 		BaseSharedPtrControlBlock<MT>* control = new (basePtr) SharedPtrControlBlockWithDeleter<T, MT, Deleter>(sizeof(T));
 
+		void* objBasePtr = control + 1;
+
 		#if CZ_SHAREDPTR_STACKTRACES
 		if (details::shouldCaptureStackTraces<T>())
 		{
 			control->firstTrace = control->createStackTrace(SharedPtrTrace::Type::Creation);
+			control->objBasePtr = objBasePtr;
+			SharedPtrRegistry::get().internal_add(objBasePtr, control);
 		}
 		#endif
 
-		return control + 1;
+		return objBasePtr;
 	}
 
 }  // namespace details

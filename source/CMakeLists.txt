@@ -3,6 +3,7 @@ set(ALL_FILES
 	"crazygaze/core/czcore.natvis"
 	
 	"crazygaze/core/details/BasicSharedPtr.h"
+	"crazygaze/core/details/SmartPtrsHelper.cpp"
 	"crazygaze/core/details/SmartPtrsHelper.h"
 	"crazygaze/core/Algorithm.h"
 	"crazygaze/core/AsyncCommandQueue.cpp"

@@ -352,10 +352,11 @@ class StringSplit
 		using reference = const std::string_view&;
 		using iterator_category = std::input_iterator_tag;
 
-		Iterator(std::string_view str, char delim, size_t pos)
+		Iterator(std::string_view str, char delim, size_t pos, bool skipEmpty)
 			: m_str(str)
 			, m_delim(delim)
 			, m_pos(pos)
+			, m_skipEmpty(skipEmpty)
 		{
 			advance();
 		}
@@ -377,7 +378,7 @@ class StringSplit
 		}
 
 	  private:
-		void advance() noexcept
+		void advanceImpl() noexcept
 		{
 			if (m_pos == std::string_view::npos)
 			{
@@ -399,32 +400,42 @@ class StringSplit
 			}
 		}
 
+		void advance() noexcept
+		{
+			advanceImpl();
+			while(!m_done && m_skipEmpty && m_current.size() == 0)
+				advanceImpl();
+		}
+
 		std::string_view m_str;
 		char m_delim;
 		size_t m_pos;
 		bool m_done = false;
+		bool m_skipEmpty = false;
 		std::string_view m_current;
 	};
 
-	StringSplit(std::string_view str, char delim)
+	StringSplit(std::string_view str, char delim, bool skipEmpty = false)
 		: m_str(str)
 		, m_delim(delim)
+		, m_skipEmpty(skipEmpty)
 	{
 	}
 
 	Iterator begin() const noexcept
 	{
-		return Iterator(m_str, m_delim, 0);
+		return Iterator(m_str, m_delim, 0, m_skipEmpty);
 	}
 
 	Iterator end() const noexcept
 	{
-		return Iterator(m_str, m_delim, std::string_view::npos);
+		return Iterator(m_str, m_delim, std::string_view::npos, m_skipEmpty);
 	}
 
   private:
 	std::string_view m_str;
 	char m_delim;
+	bool m_skipEmpty;
 };
 
 
