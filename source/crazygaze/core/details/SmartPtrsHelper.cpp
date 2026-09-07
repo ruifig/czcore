@@ -19,14 +19,6 @@ void SharedPtrRegistry::internal_remove(void* objBasePtr)
 	m_c.erase(objBasePtr);
 }
 
-void SharedPtrRegistry::setTag(void* objBasePtr, void* tag)
-{
-	auto lk = std::lock_guard(m_mtx);
-	auto it = m_c.find(objBasePtr);
-	if (it != m_c.end())
-		it->second.tag = tag;
-}
-
 std::pair<bool, void*> SharedPtrRegistry::getTag(void* objBasePtr)
 {
 	auto lk = std::lock_guard(m_mtx);

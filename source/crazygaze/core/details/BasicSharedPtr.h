@@ -237,6 +237,18 @@ class BasicSharedPtr
 #endif
 	}
 
+	/**
+	 * If trace support is compiled in, this enables traces for the control block this instance points to.
+	 * - If tracing support is not compiled in or is already enabled for this control block, then it does nothing.
+	 */
+	void enableTraces() noexcept
+	{
+#if CZ_SHAREDPTR_STACKTRACES
+		if (m_control.ctrl && !m_control.ctrl->firstTrace)
+			m_control.ctrl->firstTrace = m_control.ctrl->createStackTrace(SharedPtrTrace::Type::Creation);
+#endif
+	}
+
 	// Don't use this directly. It's for internal use only
 	static BasicSharedPtr _internal_createFromAlreadyAcquiredBlock(ControlBlock* control) noexcept
 	{

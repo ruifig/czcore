@@ -228,12 +228,17 @@ namespace details
 		#if CZ_SHAREDPTR_STACKTRACES
 		std::unique_ptr<SharedPtrTrace> createStackTrace(SharedPtrTrace::Type type);
 		SharedPtrTraces getTraces();
+
+		// The trace for when the control block was create OR tracing was enabled for this control block
+		// - If tracing is enabled per class, than this is the trace for when the object was created.
+		// - If tracing is disabled for the class, but then was enabled for this particular object instance,
+		//	 then this is the trace for when it was enabled.
+		std::unique_ptr<SharedPtrTrace> firstTrace;
 		#endif
 
 	  protected:
 
 		#if CZ_SHAREDPTR_STACKTRACES
-		std::unique_ptr<SharedPtrTrace> firstTrace; // The trace when the control block was created.
 		void* objBasePtr = nullptr; // The application's object pointer
 		#endif
 	};
@@ -242,7 +247,7 @@ namespace details
 #if CZ_SHAREDPTR_STACKTRACES
 /**
  * When CZ_SHAREDPTR_STACKTRACES is `1`, this class is used to keep a record of
- * all existing control blocks, regardless of their type
+ * all existing control blocks for which we are recording call stacks, regardless of their type.
  * 
  * This allows an application to query what's alive by having a pointer.
  */
@@ -268,18 +273,54 @@ class SharedPtrRegistry
 	 * Using this is optional. It lets the application set some tag for an object.
 	 * This can be used for example to add some name to make it easier to search by object name instead of pointer
 	 *
+	 * @param `tagProvider`
+	 *	A callable that returns `void*` that should be used as the tag.
+	 *	This is only called if the object is found.
+	 *	
+	 * @return Returns the previous tag or nullptr if the object was not found
+	 *
 	 * This would normally be called from object constructor.
 	 *
-	 * IMPORTANT: If `tag` points to some of the object's fields, a call with `setTag(<objPtr>, nullptr)` should
-	 * be made in the object's destructor. This is because in a multithreaded environment, there is a time window
+	 * IMPORTANT: If the provided tag points to some of the object's fields, a call with `setTag(<objPtr>, nullptr)` should
+	 * be made in the object's destructor. This is because in a multi-threaded environment, there is a time window
 	 * between the object destruction and the control block destruction. As-in:
 	 * 1. The object gets destroyed (thus causing `tag` to now point to some invalid memory)
 	 * 2. The control block gets destroyed.
 	 *
 	 * Between 1. and 2., some other thread can query the registry and still sees the tag (because the control block still exists),
 	 * but that tag now points to invalid memory.
-	 */
-	void setTag(void* objBasePtr, void* tag);
+	 *
+	 * NOTE:
+	 * The reason we have `tagProvider` and not simply a tag is because using simply a tag can be problematic. Imagine the caller
+	 * wants to use some custom struct for tags:
+	 * ```
+	 *	// It sets the tag in the object constructor
+	 *	SharedPtrRegistry::get().setTag(ptr, new MyTrackingInfo{...});
+	 *
+	 *	// It releases the tag in the object destructor
+	 *	if (void* tag = SharedPtrRegistry::get().getTag(ptr))
+	 *		delete reinterpret_cast<MyTrackingInfo*>(tag);
+	 *
+	 * This has the problem that if the object is not being tracked, then `setTag` does nothing, thus leaking
+	 * the allocated struct.
+	 */ 
+	template<typename F>
+		requires std::is_invocable_r_v<void*, F>
+	void* setTag(void* objBasePtr, F&& tagProvider)
+	{
+		auto lk = std::lock_guard(m_mtx);
+		auto it = m_c.find(objBasePtr);
+		if (it != m_c.end())
+		{
+			void* previousTag = it->second.tag;
+			it->second.tag = tagProvider();
+			return previousTag;
+		}
+		else
+		{
+			return nullptr;
+		}
+	}
 
 	/**
 	 * Retrieves the user specified tag.
@@ -323,7 +364,7 @@ class SharedPtrRegistry
 
 	/**
 	 * Visits all tracked objects, and returns the traces for any objects for
-	 * which the visitor returns true
+	 * which the visitor function returns true.
 	 */
 	template<typename F>
 		requires std::is_invocable_r_v<bool, F, void*, void*>
