@@ -228,7 +228,7 @@ std::vector<std::string> stringSplitIntoLinesVector(std::string_view text, bool 
  * Checks if string `what` is found in string `where`, in a case sensitive way.
  * NOTE: Only ASCII characters are considered for case insensivity.
  */
-bool constainsCi(const std::string_view where, const std::string_view what);
+bool containsCi(const std::string_view where, const std::string_view what);
 
 /*
  * Utility that given a std::string_view, it allows iterating through lines

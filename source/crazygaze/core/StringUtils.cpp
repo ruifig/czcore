@@ -210,7 +210,7 @@ std::vector<std::string> stringSplitIntoLinesVector(std::string_view text, bool 
 	return lines;
 }
 
-bool constainsCi(const std::string_view where, const std::string_view what)
+bool containsCi(const std::string_view where, const std::string_view what)
 {
 	const auto equalsIgnoreCase = [](char a, char b)
 	{
