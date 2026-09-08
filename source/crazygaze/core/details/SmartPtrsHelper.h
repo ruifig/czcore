@@ -245,22 +245,23 @@ namespace details
 }
 
 #if CZ_SHAREDPTR_STACKTRACES
+
 /**
  * When CZ_SHAREDPTR_STACKTRACES is `1`, this class is used to keep a record of
  * all existing control blocks for which we are recording call stacks, regardless of their type.
  * 
  * This allows an application to query what's alive by having a pointer.
  */
-class SharedPtrRegistry
+class SharedPtrTracingRegistry
 {
   public:
 
-	SharedPtrRegistry() = default;
-	~SharedPtrRegistry() = default;
+	SharedPtrTracingRegistry() = default;
+	~SharedPtrTracingRegistry() = default;
 
-	static SharedPtrRegistry& get()
+	static SharedPtrTracingRegistry& get()
 	{
-		static SharedPtrRegistry instance;
+		static SharedPtrTracingRegistry instance;
 		return instance;
 	}
 
@@ -295,10 +296,10 @@ class SharedPtrRegistry
 	 * wants to use some custom struct for tags:
 	 * ```
 	 *	// It sets the tag in the object constructor
-	 *	SharedPtrRegistry::get().setTag(ptr, new MyTrackingInfo{...});
+	 *	SharedPtrTracingRegistry::get().setTag(ptr, new MyTrackingInfo{...});
 	 *
 	 *	// It releases the tag in the object destructor
-	 *	if (void* tag = SharedPtrRegistry::get().getTag(ptr))
+	 *	if (void* tag = SharedPtrTracingRegistry::get().getTag(ptr))
 	 *		delete reinterpret_cast<MyTrackingInfo*>(tag);
 	 *
 	 * This has the problem that if the object is not being tracked, then `setTag` does nothing, thus leaking
@@ -370,6 +371,7 @@ class SharedPtrRegistry
 		requires std::is_invocable_r_v<bool, F, void*, void*>
 	std::vector<SharedPtrTraces> getTracesFor(F&& visitor)
 	{
+		ZoneScoped;
 		std::vector<SharedPtrTraces> res;
 		auto lk = std::lock_guard(m_mtx);
 		for(auto&& [objBasePtr, info] : m_c)
@@ -386,10 +388,15 @@ class SharedPtrRegistry
 
 	struct Info
 	{
+		// Since pointers can be recycled (as objects get deleted and created), we use an incrementing counter to uniquely
+		// identify an entry
+		uint64_t id = 0;
+
 		details::ControlBlockDetails* ctrBlk = nullptr;
 		void* tag = nullptr;
 	};
 
+	std::atomic<uint64_t> m_idCounter = 0;
 	/**
 	 * All the control blocks being tracked
 	 * The key is the object pointer (what the application uses)
@@ -401,13 +408,13 @@ class SharedPtrRegistry
 /**
  * Dummy implementation for when stack traces are disabled
  */
-class SharedPtrRegistry
+class SharedPtrTracingRegistry
 {
   public:
 
-	static SharedPtrRegistry& get()
+	static SharedPtrTracingRegistry& get()
 	{
-		static SharedPtrRegistry instance;
+		static SharedPtrTracingRegistry instance;
 		return instance;
 	}
 
@@ -783,7 +790,7 @@ namespace details
 		{
 			control->firstTrace = control->createStackTrace(SharedPtrTrace::Type::Creation);
 			control->objBasePtr = objBasePtr;
-			SharedPtrRegistry::get().internal_add(objBasePtr, control);
+			SharedPtrTracingRegistry::get().internal_add(objBasePtr, control);
 		}
 		#endif
 

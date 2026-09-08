@@ -210,6 +210,16 @@ std::vector<std::string> stringSplitIntoLinesVector(std::string_view text, bool 
 	return lines;
 }
 
+bool constainsCi(const std::string_view where, const std::string_view what)
+{
+	const auto equalsIgnoreCase = [](char a, char b)
+	{
+		return asciiCharToLower(a) == asciiCharToLower(b);
+	};
+
+	return std::search(where.begin(), where.end(), what.begin(), what.end(), equalsIgnoreCase) != where.end();
+}
+
 bool whitespaceCharacter(int ch)
 {
 // See https://www.asciitable.com/

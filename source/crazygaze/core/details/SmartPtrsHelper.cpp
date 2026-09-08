@@ -1,25 +1,25 @@
 #include "SmartPtrsHelper.h"
 
 //////////////////////////////////////////////////////////////////////////
-// SharedPtrRegistry
+// SharedPtrTracingRegistry
 //////////////////////////////////////////////////////////////////////////
 
 namespace cz
 {
 
-void SharedPtrRegistry::internal_add(void* objBasePtr, details::ControlBlockDetails* ctrlBlock)
+void SharedPtrTracingRegistry::internal_add(void* objBasePtr, details::ControlBlockDetails* ctrlBlock)
 {
 	auto lk = std::lock_guard(m_mtx);
-	m_c.try_emplace(objBasePtr, Info{ctrlBlock, nullptr});
+	m_c.try_emplace(objBasePtr, Info{m_idCounter++, ctrlBlock, nullptr});
 }
 
-void SharedPtrRegistry::internal_remove(void* objBasePtr)
+void SharedPtrTracingRegistry::internal_remove(void* objBasePtr)
 {
 	auto lk = std::lock_guard(m_mtx);
 	m_c.erase(objBasePtr);
 }
 
-std::pair<bool, void*> SharedPtrRegistry::getTag(void* objBasePtr)
+std::pair<bool, void*> SharedPtrTracingRegistry::getTag(void* objBasePtr)
 {
 	auto lk = std::lock_guard(m_mtx);
 	auto it = m_c.find(objBasePtr);
@@ -43,7 +43,7 @@ ControlBlockDetails::~ControlBlockDetails()
 	if (firstTrace)
 	{
 		CZ_CHECK(objBasePtr);
-		SharedPtrRegistry::get().internal_remove(objBasePtr);
+		SharedPtrTracingRegistry::get().internal_remove(objBasePtr);
 	}
 	#endif
 }
