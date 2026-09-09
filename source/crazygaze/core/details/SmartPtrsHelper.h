@@ -234,11 +234,28 @@ namespace details
 		// - If tracing is disabled for the class, but then was enabled for this particular object instance,
 		//	 then this is the trace for when it was enabled.
 		std::unique_ptr<SharedPtrTrace> firstTrace;
+
+		// Enabled stack tracing for this block, if not enabled already
+		void enableTraces()
+		{
+			if (!firstTrace)
+				firstTrace = createStackTrace(SharedPtrTrace::Type::Creation);
+		}
 		#endif
 
 	  protected:
 
 		#if CZ_SHAREDPTR_STACKTRACES
+		
+		// Controls if tracing is currently enabled for this control block.
+		// "currently", because this can be enabled/disabled at any point.
+		// Once enabled, it will start creating creating traces, and once disable it stops creating
+		// traces BUT doesn't delete the previous ones.
+		bool tracingEnabled = false;
+
+		// Counts how many traces were creating for the entire lifetime of the control block
+		std::atomic<uint64_t> totalLifetimeTraces = 0;
+
 		void* objBasePtr = nullptr; // The application's object pointer
 		#endif
 	};
@@ -369,7 +386,7 @@ class SharedPtrTracingRegistry
 	 */
 	template<typename F>
 		requires std::is_invocable_r_v<bool, F, void*, void*>
-	std::vector<SharedPtrTraces> getTracesFor(F&& visitor)
+	std::vector<SharedPtrTraces> getTracesForMultiple(F&& visitor)
 	{
 		ZoneScoped;
 		std::vector<SharedPtrTraces> res;
@@ -381,6 +398,27 @@ class SharedPtrTracingRegistry
 		}
 
 		return res;
+	}
+
+	/**
+	 * Gets traces for the specified object (if traces are available)
+	 *
+	 * IMPORTANT: Note that since pointers can be recycled as objects get created and destroyed,
+	 * it is up to the caller to make sure the pointer is still for the original object.
+	 * As-in, if the caller simply cached the pointer from some other previous call and doesn't actually
+	 * need to use the object, and then it simply queries the registry with that pointer, then depending
+	 * on the application logic, that pointer in the registry might now be some other object.
+	 */
+	SharedPtrTraces getTracesFor(void* objBasePtr)
+	{
+		ZoneScoped;
+		auto lk = std::lock_guard(m_mtx);
+
+		auto it = m_c.find(objBasePtr);
+		if (it == m_c.end())
+			return {};
+		else
+			return it->second.ctrBlk->getTraces();
 	}
 
   protected:
@@ -786,12 +824,9 @@ namespace details
 		void* objBasePtr = control + 1;
 
 		#if CZ_SHAREDPTR_STACKTRACES
-		if (details::shouldCaptureStackTraces<T>())
-		{
-			control->firstTrace = control->createStackTrace(SharedPtrTrace::Type::Creation);
-			control->objBasePtr = objBasePtr;
-			SharedPtrTracingRegistry::get().internal_add(objBasePtr, control);
-		}
+		control->objBasePtr = objBasePtr;
+		control->tracingEnabled = details::shouldCaptureStackTraces<T>();
+		control->firstTrace = control->createStackTrace(SharedPtrTrace::Type::Creation);
 		#endif
 
 		return objBasePtr;

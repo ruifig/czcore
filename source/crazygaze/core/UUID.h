@@ -70,6 +70,11 @@ public:
 		return (values64[0] | values64[1]) != 0;
 	}
 
+	operator bool() const
+	{
+		return isValid();
+	}
+
 	// So it can be used as a key in maps
 	bool operator<(const UUID& other) const;
 

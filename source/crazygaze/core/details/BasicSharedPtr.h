@@ -249,8 +249,7 @@ class BasicSharedPtr
 #if CZ_SHAREDPTR_STACKTRACES
 		if (m_control.ctrl)
 		{
-			if (!m_control.ctrl->firstTrace)
-				m_control.ctrl->firstTrace = m_control.ctrl->createStackTrace(SharedPtrTrace::Type::Creation);
+			m_control.ctrl->enableTraces();
 			return true;
 		}
 #endif
@@ -719,6 +718,16 @@ class BasicEnableSharedFromThis
 	BasicEnableSharedFromThis& operator=(const BasicEnableSharedFromThis&) noexcept = default;
 	~BasicEnableSharedFromThis() = default;
 
+  private:
+
+	typename BasicSharedPtr<T, MT>::ControlBlock* getControlBlock()
+	{
+		T* derivedThis = static_cast<T*>(this);
+		void* rawPtr = reinterpret_cast<uint8_t*>(derivedThis) - sizeof(typename BasicSharedPtr<T, MT>::ControlBlock);
+		auto ctrl = reinterpret_cast<typename BasicSharedPtr<T, MT>::ControlBlock*>(rawPtr);
+		return ctrl;
+	}
+
   public:
 
 	static constexpr bool BasicEnableSharedFromThis_MT = MT;
@@ -733,9 +742,7 @@ class BasicEnableSharedFromThis
 	 */
 	BasicSharedPtr<T, MT> sharedFromThis()
 	{
-		T* derivedThis = static_cast<T*>(this);
-		void* rawPtr = reinterpret_cast<uint8_t*>(derivedThis) - sizeof(typename BasicSharedPtr<T, MT>::ControlBlock);
-		auto ctrl = reinterpret_cast<typename BasicSharedPtr<T, MT>::ControlBlock*>(rawPtr);
+		auto ctrl = getControlBlock();
 
 		if (ctrl->lockStrong())
 		{
@@ -751,6 +758,13 @@ class BasicEnableSharedFromThis
 			CZ_CHECK(false);
 			return {};
 		}
+	}
+
+	void enableTraces()
+	{
+		#if CZ_SHAREDPTR_STACKTRACES
+		getControlBlock()->enableTraces();
+		#endif
 	}
 
 	/**

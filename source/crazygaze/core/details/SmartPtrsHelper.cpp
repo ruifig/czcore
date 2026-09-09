@@ -40,7 +40,7 @@ namespace details
 ControlBlockDetails::~ControlBlockDetails()
 {
 	#if CZ_SHAREDPTR_STACKTRACES
-	if (firstTrace)
+	if (totalLifetimeTraces > 0)
 	{
 		CZ_CHECK(objBasePtr);
 		SharedPtrTracingRegistry::get().internal_remove(objBasePtr);
@@ -49,24 +49,32 @@ ControlBlockDetails::~ControlBlockDetails()
 }
 
 #if CZ_SHAREDPTR_STACKTRACES
+
+/**
+ * Creates a stack trace if tracing is enabled.
+ * If not enabled, it returns nullptr.
+ *
+ * The "is tracing enabled" check is done in this function instead of on the caller side
+ * so that we we can simplify the caller side.
+ */
 std::unique_ptr<SharedPtrTrace> ControlBlockDetails::createStackTrace(SharedPtrTrace::Type type)
 {
-	// If it's the creation trace (aka first trace), then we want to create the TraceList
-	if (type == SharedPtrTrace::Type::Creation)
-		return std::unique_ptr<SharedPtrTrace>(new SharedPtrTrace(type, std::make_shared<TraceList>()));
-
-	// If we have the first trace, it means we want to capture stack traces
-	if (firstTrace)
-	{
-		ZoneScoped;
-		// Using `new` instead of make_unique, so `std::make_unique` doesn't show up in the stacktrace.
-		// This makes it easier for tools by allowing them to skip all the frames at the top that start with `cz::`
-		return std::unique_ptr<SharedPtrTrace>(new SharedPtrTrace(type, firstTrace->outer));
-	}
-	else
-	{
+	if (!tracingEnabled)
 		return nullptr;
-	}
+
+	ZoneScoped;
+
+	// If it's the first ever trace, then add to the tracing registry
+	if (totalLifetimeTraces.fetch_add(1) == 0)
+		SharedPtrTracingRegistry::get().internal_add(objBasePtr, this);
+
+	// Using `new` instead of make_unique, so `std::make_unique` doesn't show up in the stacktrace.
+	// This makes it easier for tools by allowing them to skip all the frames at the top that start with `cz::`
+	return std::unique_ptr<SharedPtrTrace>(new SharedPtrTrace(
+		type,
+		// Create the TraceList if it doesn't exist yet.
+		firstTrace->outer ? firstTrace->outer : std::make_shared<TraceList>()
+		));
 }
 
 SharedPtrTraces ControlBlockDetails::getTraces()
