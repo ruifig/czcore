@@ -216,6 +216,15 @@ struct SharedPtrTraces
 
 namespace details
 {
+	template<class T>
+	bool shouldCaptureStackTraces()
+	{
+		if constexpr (requires(T* p) { T::captureSharedPtrStackTraces(); })
+			return T::captureSharedPtrStackTraces();
+		else
+			return false;
+	}
+
 	/**
 	 * Bare minimum needed for the control block that doesn't need to be templated
 	 * This is mostly so we have some bare non-templated functionality to query traces
@@ -229,34 +238,53 @@ namespace details
 		std::unique_ptr<SharedPtrTrace> createStackTrace(SharedPtrTrace::Type type);
 		SharedPtrTraces getTraces();
 
-		// The trace for when the control block was create OR tracing was enabled for this control block
-		// - If tracing is enabled per class, than this is the trace for when the object was created.
-		// - If tracing is disabled for the class, but then was enabled for this particular object instance,
-		//	 then this is the trace for when it was enabled.
-		std::unique_ptr<SharedPtrTrace> firstTrace;
+		// The trace for when the control block was create
+		std::unique_ptr<SharedPtrTrace> firstTrace_;
 
 		// Enabled stack tracing for this block, if not enabled already
-		void enableTraces()
+		void setTracing(bool enabled)
 		{
-			if (!firstTrace)
-				firstTrace = createStackTrace(SharedPtrTrace::Type::Creation);
+			CZ_CHECK(m_objBasePtr);
+
+			m_tracing([enabled](TracingData& data)
+			{
+				data.enabled = enabled;
+			});
 		}
+
+		template<typename T>
+		void init([[maybe_unused]] void* objBasePtr)
+		{
+			m_objBasePtr = objBasePtr;
+			setTracing(details::shouldCaptureStackTraces<T>());
+
+			if (!firstTrace_)
+				firstTrace_ = createStackTrace(SharedPtrTrace::Type::Creation);
+		}
+		#else
+		template<typename T>
+		void init([[maybe_unused]] void* objBasePtr) {}
 		#endif
 
 	  protected:
 
 		#if CZ_SHAREDPTR_STACKTRACES
-		
-		// Controls if tracing is currently enabled for this control block.
-		// "currently", because this can be enabled/disabled at any point.
-		// Once enabled, it will start creating creating traces, and once disable it stops creating
-		// traces BUT doesn't delete the previous ones.
-		bool tracingEnabled = false;
+		void* m_objBasePtr = nullptr; // The application's object pointer
 
-		// Counts how many traces were creating for the entire lifetime of the control block
-		std::atomic<uint64_t> totalLifetimeTraces = 0;
+		struct TracingData
+		{
+			// Controls if tracing is currently enabled for this control block.
+			// "currently", because this can be enabled/disabled at any point.
+			// Once enabled, it will start creating creating traces, and once disable it stops creating
+			// traces BUT doesn't delete the previous ones.
+			bool enabled = false;
 
-		void* objBasePtr = nullptr; // The application's object pointer
+			std::shared_ptr<TraceList> traceList;
+
+			// Counts how many traces were creating for the entire lifetime of the control block
+			uint64_t totalLifetimeTraces = 0;
+		};
+		Monitor<TracingData, SpinLock> m_tracing;
 		#endif
 	};
 }
@@ -467,17 +495,6 @@ class SharedPtrTracingRegistry
 
 namespace details
 {
-
-
-	template<class T>
-	bool shouldCaptureStackTraces()
-	{
-		if constexpr (requires(T* p) { T::captureSharedPtrStackTraces(); })
-			return T::captureSharedPtrStackTraces();
-		else
-			return false;
-	}
-
 
 	/**
 	 * RefCounter implements the following interface:
@@ -822,13 +839,7 @@ namespace details
 		BaseSharedPtrControlBlock<MT>* control = new (basePtr) SharedPtrControlBlockWithDeleter<T, MT, Deleter>(sizeof(T));
 
 		void* objBasePtr = control + 1;
-
-		#if CZ_SHAREDPTR_STACKTRACES
-		control->objBasePtr = objBasePtr;
-		control->tracingEnabled = details::shouldCaptureStackTraces<T>();
-		control->firstTrace = control->createStackTrace(SharedPtrTrace::Type::Creation);
-		#endif
-
+		control->init<T>(objBasePtr);
 		return objBasePtr;
 	}
 

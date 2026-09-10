@@ -40,11 +40,12 @@ namespace details
 ControlBlockDetails::~ControlBlockDetails()
 {
 	#if CZ_SHAREDPTR_STACKTRACES
-	if (totalLifetimeTraces > 0)
+	CZ_CHECK(m_objBasePtr);
+	m_tracing([this](TracingData& data)
 	{
-		CZ_CHECK(objBasePtr);
-		SharedPtrTracingRegistry::get().internal_remove(objBasePtr);
-	}
+		if (data.totalLifetimeTraces)
+			SharedPtrTracingRegistry::get().internal_remove(m_objBasePtr);
+	});
 	#endif
 }
 
@@ -59,31 +60,53 @@ ControlBlockDetails::~ControlBlockDetails()
  */
 std::unique_ptr<SharedPtrTrace> ControlBlockDetails::createStackTrace(SharedPtrTrace::Type type)
 {
-	if (!tracingEnabled)
-		return nullptr;
-
 	ZoneScoped;
 
-	// If it's the first ever trace, then add to the tracing registry
-	if (totalLifetimeTraces.fetch_add(1) == 0)
-		SharedPtrTracingRegistry::get().internal_add(objBasePtr, this);
+	// We only lock for the time we need to figure out things.
+	// The stack trace is then created outside the lock
+	std::shared_ptr<TraceList> dstList = m_tracing([this](TracingData& data) -> std::shared_ptr<TraceList>
+	{
+		// Tracing is not enabled, then don't create a trace
+		if (!data.enabled)
+			return nullptr;
 
-	// Using `new` instead of make_unique, so `std::make_unique` doesn't show up in the stacktrace.
-	// This makes it easier for tools by allowing them to skip all the frames at the top that start with `cz::`
-	return std::unique_ptr<SharedPtrTrace>(new SharedPtrTrace(
-		type,
-		// Create the TraceList if it doesn't exist yet.
-		firstTrace->outer ? firstTrace->outer : std::make_shared<TraceList>()
-		));
+		// If it's the first ever trace, then add to the tracing registry
+		if (data.totalLifetimeTraces == 0)
+			SharedPtrTracingRegistry::get().internal_add(m_objBasePtr, this);
+
+		data.totalLifetimeTraces++;
+
+		// Create the 
+		if (!data.traceList)
+			data.traceList = std::make_shared<TraceList>();
+
+		return data.traceList;
+	});
+
+	if (dstList)
+	{
+		// Using `new` instead of make_unique, so `std::make_unique` doesn't show up in the stacktrace.
+		// This makes it easier for tools by allowing them to skip all the frames at the top that start with `cz::`
+		return std::unique_ptr<SharedPtrTrace>(new SharedPtrTrace(type, std::move(dstList)));
+	}
+	else
+	{
+		return nullptr;
+	}
 }
 
 SharedPtrTraces ControlBlockDetails::getTraces()
 {
 	SharedPtrTraces res;
 
-	if (firstTrace)
+	std::shared_ptr<TraceList> traceList = m_tracing([](TracingData& data)
 	{
-		firstTrace->outer->visitAll([&res](const SharedPtrTrace* ele)
+		return data.traceList;
+	});
+
+	if (traceList)
+	{
+		traceList->visitAll([&res](const SharedPtrTrace* ele)
 		{
 			SharedPtrTraces::Entry entry{ele->timestamp, ele->frame, ele->trace};
 			if (ele->type == SharedPtrTrace::Type::Creation)
