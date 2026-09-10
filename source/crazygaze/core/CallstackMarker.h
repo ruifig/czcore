@@ -144,9 +144,18 @@ public:
 	{
 		return Iterator(nullptr);
 	}
+	
+	/**
+	 * Returns the Context currently at the top, or nullptr if the stack is empty
+	 */
+	static Context* top()
+	{
+		return ms_data.top;
+	}
 
 private:
-	static inline thread_local struct
+	
+	struct Data
 	{
 		Context* top = nullptr;
 
@@ -154,7 +163,8 @@ private:
 		// an application might want to insert a context from one function, then pop it from another.
 		// This vector allows that
 		std::vector<std::unique_ptr<Context>> oob;
-	} ms_data;
+	};
+	static inline thread_local Data ms_data;
 };
 
 } // namespace cz
