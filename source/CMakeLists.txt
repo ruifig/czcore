@@ -8,6 +8,7 @@ set(ALL_FILES
 	"crazygaze/core/Algorithm.h"
 	"crazygaze/core/AsyncCommandQueue.cpp"
 	"crazygaze/core/AsyncCommandQueue.h"
+	"crazygaze/core/CallstackMarker.h"
 	"crazygaze/core/CommandLine.cpp"
 	"crazygaze/core/CommandLine.h"
 	"crazygaze/core/Common.h"
