@@ -251,6 +251,21 @@ class BasicSharedPtr
 #endif
 	}
 
+	/**
+	 * Returns true if tracing is enabled for this control block.
+	 * Note that if it returns true, it doesn't mean it currently has traces. It means
+	 * traces will be created when applicable.
+	 */
+	bool isSharedPtrTracingEnabled() const noexcept
+	{
+#if CZ_SHAREDPTR_STACKTRACES
+		if (m_control.ctrl)
+			return m_control.ctrl->isTracingEnabled();
+#else
+		return false;
+#endif
+	}
+
 	// Don't use this directly. It's for internal use only
 	static BasicSharedPtr _internal_createFromAlreadyAcquiredBlock(ControlBlock* control) noexcept
 	{
@@ -715,12 +730,22 @@ class BasicEnableSharedFromThis
 
   private:
 
-	typename BasicSharedPtr<T, MT>::ControlBlock* getControlBlock()
+	typename BasicSharedPtr<T, MT>::ControlBlock* getControlBlockImpl()
 	{
 		T* derivedThis = static_cast<T*>(this);
 		void* rawPtr = reinterpret_cast<uint8_t*>(derivedThis) - sizeof(typename BasicSharedPtr<T, MT>::ControlBlock);
 		auto ctrl = reinterpret_cast<typename BasicSharedPtr<T, MT>::ControlBlock*>(rawPtr);
 		return ctrl;
+	}
+
+	typename BasicSharedPtr<T, MT>::ControlBlock* getControlBlock()
+	{
+		return getControlBlockImpl();
+	}
+
+	typename BasicSharedPtr<T, MT>::ControlBlock* getControlBlock() const
+	{
+		return const_cast<BasicEnableSharedFromThis<T,MT>*>(this)->getControlBlockImpl();
 	}
 
   public:
@@ -760,6 +785,20 @@ class BasicEnableSharedFromThis
 		#if CZ_SHAREDPTR_STACKTRACES
 		getControlBlock()->setTracing(enabled);
 		#endif
+	}
+
+	/**
+	 * Returns true if tracing is enabled for this control block.
+	 * Note that if it returns true, it doesn't mean it currently has traces. It means
+	 * traces will be created when applicable.
+	 */
+	bool isSharedPtrTracingEnabled() const noexcept
+	{
+#if CZ_SHAREDPTR_STACKTRACES
+		return getControlBlock()->isTracingEnabled();
+#else
+		return false;
+#endif
 	}
 
 	/**

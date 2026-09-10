@@ -155,6 +155,7 @@ public:
 
 private:
 	
+	#if 1
 	struct Data
 	{
 		Context* top = nullptr;
@@ -165,6 +166,20 @@ private:
 		std::vector<std::unique_ptr<Context>> oob;
 	};
 	static inline thread_local Data ms_data;
+	#else
+	// This version seems to be buggy in msvc (at the time of witting).
+	// They should behave the same, but when I set `top` then try to get it back, it says it's null.
+	// Maybe some msvc bug related to unnammed structs and tls?
+	static inline thread_local struct
+	{
+		Context* top = nullptr;
+
+		// Typically, an application will use scoped Context instances, but in some scenarios,
+		// an application might want to insert a context from one function, then pop it from another.
+		// This vector allows that
+		std::vector<std::unique_ptr<Context>> oob;
+	} ms_data;
+	#endif
 };
 
 } // namespace cz

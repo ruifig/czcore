@@ -252,6 +252,17 @@ namespace details
 			});
 		}
 
+		// Returns true if tracing is enabled for this control block.
+		// Note that if it returns true, it doesn't mean it has traces at the moment. It means
+		// that future increments to the control block refcount will create traces.
+		bool isTracingEnabled() const
+		{
+			return m_tracing([](TracingData& data)
+			{
+				return data.enabled;
+			});
+		}
+
 		template<typename T>
 		void init([[maybe_unused]] void* objBasePtr)
 		{
