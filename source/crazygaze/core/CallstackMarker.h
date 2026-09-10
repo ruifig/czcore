@@ -45,7 +45,6 @@ public:
 
 		~Context()
 		{
-			auto s = CallstackMarker<Key,Value>::ms_data.top;
 			CallstackMarker<Key,Value>::ms_data.top = m_next;
 		}
 
