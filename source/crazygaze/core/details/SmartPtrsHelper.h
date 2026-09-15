@@ -219,7 +219,9 @@ namespace details
 	template<class T>
 	bool shouldCaptureStackTraces()
 	{
-		if constexpr (requires(T* p) { T::captureSharedPtrStackTraces(); })
+		if constexpr (requires(T* p) { T::template captureSharedPtrStackTracesT<T>(); })
+			return T::template captureSharedPtrStackTracesT<T>();
+		else if constexpr (requires(T* p) { T::captureSharedPtrStackTraces(); })
 			return T::captureSharedPtrStackTraces();
 		else
 			return false;

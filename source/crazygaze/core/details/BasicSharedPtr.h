@@ -39,10 +39,12 @@ class BasicSharedRef;
  * - Both thread safe and non-thread safe version are supported. (typedef to SharedPtr<T>/WeakPtr<T> and LocalSharedPtr<T>/LocalWeakPtr<T>)
  * - Allows capturing stack traces for debugging purposes
  *		- Setting CZ_SHAREDPTR_STACKTRACES to 1 compiles in stack trace support, but enabling it for a specific class is opt-in.
- *		  You can enable it for a specific class by adding a `static bool captureSharedPtrStackTraces() { return true; }` method to the class.
+ *		  You can enable it for a specific class by adding a `static bool captureSharedPtrStackTraces() { return true; }` method to the class. Alternatively, you can add a `template<typename T> static bool captureSharedPtrStackTracesT(){...}` method to the
+ * class, which might make it easier to enable/disable stack traces for multiple classes in one place. The method can return
+ * true/false based on any runtime condition, e.g, a command line argument or an environment variable.
  *		  By doing this, stack traces can be enabled/disabled at run-time:
  *			- Compile with CZ_SHAREDPTR_STACKTRACES set to 1. This adds little overhead by itself, but should still be disabled in release builds.
- *			- Add a `captureSharedPtrStackTraces` method to the classes you want to capture stack traces for, and return true/false based on a runtime condition.
+ *			- Add a `captureSharedPtrStackTraces` or `captureSharedPtrStackTracesT` method to the classes you want to capture stack traces for, and return true/false based on a runtime condition.
  */
 template<typename T, bool MT>
 class BasicSharedPtr
