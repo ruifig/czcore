@@ -497,7 +497,7 @@ class SharedPtrTracingRegistry
 		return instance;
 	}
 
-	void setTag(void*, void*); { }
+	void setTag(void*, void*) { }
 	std::pair<bool, void*> getTag(void*) { return {false, nullptr}; }
 
 	template<typename T>

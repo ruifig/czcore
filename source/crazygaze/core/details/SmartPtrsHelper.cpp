@@ -1,11 +1,13 @@
 #include "SmartPtrsHelper.h"
 
+namespace cz
+{
+
 //////////////////////////////////////////////////////////////////////////
 // SharedPtrTracingRegistry
 //////////////////////////////////////////////////////////////////////////
 
-namespace cz
-{
+#if CZ_SHAREDPTR_STACKTRACES
 
 void SharedPtrTracingRegistry::internal_add(void* objBasePtr, details::ControlBlockDetails* ctrlBlock)
 {
@@ -28,6 +30,8 @@ std::pair<bool, void*> SharedPtrTracingRegistry::getTag(void* objBasePtr)
 	else
 		return {true, it->second.tag};
 }
+
+#endif
 
 
 namespace details
