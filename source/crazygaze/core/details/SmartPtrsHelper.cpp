@@ -128,6 +128,15 @@ SharedPtrTraces ControlBlockDetails::getTraces()
 
 	return res;
 }
+
+uint64_t ControlBlockDetails::getTotalLifetimeTraces()
+{
+	return m_tracing([](TracingData& data) -> uint64_t
+	{
+		return data.totalLifetimeTraces;
+	});
+}
+
 #endif
 
 } // namespace details

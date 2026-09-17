@@ -239,6 +239,7 @@ namespace details
 		#if CZ_SHAREDPTR_STACKTRACES
 		std::unique_ptr<SharedPtrTrace> createStackTrace(SharedPtrTrace::Type type);
 		SharedPtrTraces getTraces();
+		uint64_t getTotalLifetimeTraces();
 
 		// The trace for when the control block was create
 		std::unique_ptr<SharedPtrTrace> firstTrace_;

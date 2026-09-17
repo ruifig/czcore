@@ -239,6 +239,15 @@ class BasicSharedPtr
 #endif
 	}
 
+	uint64_t getTotalLifetimeTraces() const noexcept
+	{
+#if CZ_SHAREDPTR_STACKTRACES
+		return m_control.ctrl ? m_control.ctrl->getTotalLifetimeTraces() : 0;
+#else
+		return 0;
+#endif
+	}
+
 	/**
 	 * If trace support is compiled in, this enables/disables traces for the control block this instance points to.
 	 * - If tracing support is not compiled in, then it does nothing.
@@ -281,21 +290,12 @@ class BasicSharedPtr
 	static BasicSharedPtr _internal_stealBlockAndCreate(BasicSharedPtr<U, MT>& from)
 	{
 		BasicSharedPtr res;
-		res.m_control = reinterpret_cast<ControlHolder&&>(std::move(from.m_control));
+		res.m_control = std::move(reinterpret_cast<ControlHolder&>(from.m_control));
 		from.m_control = {};
 		return res;
 	}
 
   private:
-
-	// This is private, so that only BasicWeakPtr::lock and BasicEnableSharedFromThis::sharedFromThis can use it
-	#if 0
-	BasicSharedPtr(ControlBlock* control) noexcept
-	{
-		acquireBlock<false>(control);
-	}
-	#else
-	#endif
 
 	template<bool doInc, typename U>
 	void acquireBlock(details::SharedPtrControlBlock<U, MT>* control) noexcept
@@ -798,6 +798,15 @@ class BasicEnableSharedFromThis
 	{
 #if CZ_SHAREDPTR_STACKTRACES
 		return getControlBlock()->isTracingEnabled();
+#else
+		return false;
+#endif
+	}
+
+	uint64_t getSharedPtrTotalLifetimeTraces() const noexcept
+	{
+#if CZ_SHAREDPTR_STACKTRACES
+		return getControlBlock()->getTotalLifetimeTraces();
 #else
 		return false;
 #endif
