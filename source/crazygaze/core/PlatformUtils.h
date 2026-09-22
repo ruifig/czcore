@@ -14,10 +14,21 @@ namespace fs = std::filesystem;
  * @param funcName Name of the Win32 function that failed. This information is added to the string. Can be nulled.
  */
 std::string getWin32Error(DWORD err = ERROR_SUCCESS, const char* funcname = nullptr);
+std::string getWin32Error(HRESULT hr, const char* funcname = nullptr);
 inline std::string getWin32Error(const char* funcname)
 {
 	return getWin32Error(ERROR_SUCCESS, funcname);
 }
+
+
+/**
+ * Given a path, it shows that file (or folder) in Windows's explorer.
+ * IMPORTANT : It requires COM to be already initialized for the current thread.
+ *
+ * Returns true if operation succeeded, or false if e.g COM was not initialized.
+ */
+bool showInExplorer(const fs::path& absolutePath);
+
 #endif
 
 /**
@@ -36,6 +47,8 @@ fs::path getProcessExe();
  * of logical cores instead.
  */
 uint32_t getNumPhysicalCores();
+
+
 
 } // namespace cz
 

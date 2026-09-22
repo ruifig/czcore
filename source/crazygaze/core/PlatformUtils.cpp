@@ -3,6 +3,11 @@
 #include "StringUtils.h"
 #include "Logging.h"
 
+#if CZ_WINDOWS
+	// Including this here instead of the precompiled header, because at the time of writing it will for example conflicts with our UUID class
+	#include <ShlObj.h>
+#endif
+
 namespace cz
 {
 
@@ -48,6 +53,45 @@ std::string getWin32Error(DWORD err, const char* funcname)
 
 	return narrow(ret);
 }
+
+std::string getWin32Error(HRESULT hr, const char* funcname)
+{
+	// Win32 errors wrapped in an HRESULT use the underlying Win32 code
+	// when looking up their system message.
+	const DWORD messageId = HRESULT_FACILITY(hr) == FACILITY_WIN32
+		? static_cast<DWORD>(HRESULT_CODE(hr)) :
+		static_cast<DWORD>(hr);
+
+	return getWin32Error(messageId, funcname);
+}
+
+bool showInExplorer(const fs::path& absolutePath)
+{
+	PIDLIST_ABSOLUTE pidl = nullptr;
+
+	HRESULT hr = SHParseDisplayName(absolutePath.native().c_str(), nullptr, &pidl, 0, nullptr);
+
+	if (FAILED(hr))
+	{
+		CZ_LOG(Main, Error, "{}", getWin32Error(hr, "SHParseDisplayName"));
+		return false;
+	}
+
+	// With cidl == 0, opens the item's parent and selects the item.
+	hr = SHOpenFolderAndSelectItems(pidl, 0, nullptr, 0);
+	CoTaskMemFree(pidl);
+
+	if (FAILED(hr))
+	{
+		CZ_LOG(Main, Error, "{}", getWin32Error(hr, "SHOpenFolderAndSelectItems"));
+		return false;
+	}
+	else
+	{
+		return true;
+	}
+}
+
 #endif
 
 namespace
