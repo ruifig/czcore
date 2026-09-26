@@ -21,13 +21,17 @@ extern std::atomic<uint64_t> gFrameCounter;
  * These kind of bugs can easily happen when an application has e.g "app layers", and
  * they each tick singletons. 
  */
-#define CHECK_ONE_TICK_PER_FRAME()                                          \
-	static uint64_t s_lastTickFrame = std::numeric_limits<uint64_t>::max(); \
-	if (s_lastTickFrame == gFrameCounter.load())                            \
-	{                                                                       \
-		CZ_CHECK(false);                                                    \
-	}                                                                       \
-	s_lastTickFrame = gFrameCounter.load();
+#if CZ_DEBUG || CZ_DEVELOPMENT
+	#define CHECK_ONE_TICK_PER_FRAME()                                          \
+		static uint64_t s_lastTickFrame = std::numeric_limits<uint64_t>::max(); \
+		if (s_lastTickFrame == gFrameCounter.load())                            \
+		{                                                                       \
+			CZ_CHECK(false);                                                    \
+		}                                                                       \
+		s_lastTickFrame = gFrameCounter.load();
+#else
+	#define CHECK_ONE_TICK_PER_FRAME()
+#endif
 
 enum class LogLevel
 {
