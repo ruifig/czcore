@@ -322,6 +322,23 @@ uint32_t getNumPhysicalCores()
 	return processorCoreCount;
 }
 
+std::optional<fs::file_time_type> getFileCreationTime(const fs::path& path)
+{
+	WIN32_FILE_ATTRIBUTE_DATA data{};
+
+	if (!GetFileAttributesExW(path.c_str(), GetFileExInfoStandard, &data))
+	{
+		CZ_LOG(Main, Error, "{}", getWin32Error("GetFileAttributesExW"))
+		return std::nullopt;
+	}
+
+	ULARGE_INTEGER time{};
+	time.LowPart = data.ftCreationTime.dwLowDateTime;
+	time.HighPart = data.ftCreationTime.dwHighDateTime;
+	using FileTime = std::filesystem::file_time_type;
+	return FileTime{FileTime::duration{static_cast<FileTime::duration::rep>(time.QuadPart)}};
+}
+
 #else
 uint32_t getNumPhysicalCores()
 {

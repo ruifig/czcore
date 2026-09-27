@@ -48,7 +48,15 @@ fs::path getProcessExe();
  */
 uint32_t getNumPhysicalCores();
 
+#if CZ_WINDOWS
 
+/**
+ * Returns the creation time of the specified file.
+ * If an error occured, then std::nullopt is returned
+ */
+std::optional<fs::file_time_type> getFileCreationTime(const fs::path& path);
+
+#endif
 
 } // namespace cz
 
