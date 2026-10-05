@@ -9,6 +9,7 @@
 #include "crazygaze/core/VSOVector.h"
 #include "crazygaze/core/TaggedPtr.h"
 #include "crazygaze/core/FixedHeapArray.h"
+#include "crazygaze/core/File.h"
 
 #include <print>
 #include <future>

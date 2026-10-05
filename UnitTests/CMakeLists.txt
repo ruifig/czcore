@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 4.0)
 set(ALL_FILES
 	"CoreUnitTests.cpp"
 	"CoreUnitTestsPch.h"
+	"FileTests.cpp"
 	"FixedHeapArrayTests.cpp"
 	"FNVHashTests.cpp"
 	"HandlesTests.cpp"

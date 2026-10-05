@@ -129,12 +129,12 @@ class File
 	{
 		CZ_DELETE_COPY(Buffer);
 
-		// Since 0 is a valid size (the file is empty), we use max() to signify there was an error
-		inline static constexpr size_t InvalidSize = std::numeric_limits<size_t>::max();
-
 		Buffer(size_t size)
 		{
+			// If size is 0, we still allocate 1 byte.
+			// This makes all the other code easier to handle the edge case where a file reads successfully but its empty
 			ptr = reinterpret_cast<uint8_t*>(malloc(size ? size : 1));
+
 			// IMPORTANT: `size` is intentionally NOT set here, so the caller code can set it ONLY if there was no error
 		}
 
@@ -159,14 +159,14 @@ class File
 				ptr = other.ptr;
 				size = other.size;
 				other.ptr = nullptr;
-				other.size = InvalidSize;
+				other.size = 0;
 			}
 			return *this;
 		}
 
 		bool isValid() const
 		{
-			return size != InvalidSize;
+			return ptr != nullptr;
 		}
 
 		operator bool() const
@@ -182,8 +182,13 @@ class File
 				return "";
 		}
 
+		uint8_t* begin()             { return ptr; }
+		uint8_t* end()               { return ptr + size; }
+		const uint8_t* begin() const { return ptr; }
+		const uint8_t* end()   const { return ptr + size; }
+
 		uint8_t* ptr = nullptr;
-		size_t size = InvalidSize;
+		size_t size = 0;
 	};
 
 	/*!
