@@ -25,7 +25,7 @@ public:
 	 * Controls what string format to use.
 	 * See https://learn.microsoft.com/en-us/dotnet/api/system.guid.tostring?view=net-10.0
 	 */
-	enum FormatType
+	enum class FormatType
 	{
 		// 32 digits: 
 		// 00000000000000000000000000000000
