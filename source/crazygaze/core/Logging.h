@@ -197,16 +197,16 @@ void setLogSettings(std::string_view logSettings);
 #define CZ_LOG(name, logLevel, format, ...) CZ_LOG_IMPL(true, name, logLevel, format,  ##__VA_ARGS__)
 #define CZ_LOG_EX(debuggerOutput, name, logLevel, format, ...) CZ_LOG_IMPL(debuggerOutput, name, logLevel, format,  ##__VA_ARGS__)
 
-#define CZ_CHECK_IMPL(expr)                    \
-	if (!(expr))                               \
-	{                                          \
-		CZ_LOG(Main, Fatal, "Assert :" #expr); \
+#define CZ_CHECK_IMPL(expr)                          \
+	if (!(expr))                                     \
+	{                                                \
+		CZ_LOG(Main, Fatal, "Assert : '{}'", #expr); \
 	}
 
 #define CZ_CHECK_F_IMPL(expr, format, ...)                                 \
 	if (!(expr))                                                           \
 	{                                                                      \
-		CZ_LOG(Main, Fatal, "Assert '" #expr "': " format, ##__VA_ARGS__); \
+		CZ_LOG(Main, Fatal, "Assert '{}': " format, #expr, ##__VA_ARGS__); \
 	}
 
 #if CZ_DEBUG || CZ_DEVELOPMENT
