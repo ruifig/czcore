@@ -148,5 +148,26 @@ namespace cz
 		return false;
 	}
 
+	/*!
+	 * Checks whether a value equals any element in a list.
+	 *
+	 * @param what The value to compare.
+	 * @param l The candidate values.
+	 * @return true if any element compares equal to what, or false otherwise (including when the list is empty).
+	 *
+	 * @note T and TT must support comparison using operator==
+	 */
+	template <typename T, typename TT>
+	constexpr bool isAnyOf(const T& what, std::initializer_list<TT> l)
+	{
+		for (const auto& value : l)
+		{
+			if (what == value)
+				return true;
+		}
+
+		return false;
+	}
+
 } // namespace cz
 
