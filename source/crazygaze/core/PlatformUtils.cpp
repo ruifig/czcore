@@ -77,7 +77,7 @@ bool showInExplorer(const fs::path& absolutePath)
 		return false;
 	}
 
-	// With cidl == 0, opens the item's parent and selects the item.
+	// With pidl == 0, opens the item's parent and selects the item.
 	hr = SHOpenFolderAndSelectItems(pidl, 0, nullptr, 0);
 	CoTaskMemFree(pidl);
 
