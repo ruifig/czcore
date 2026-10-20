@@ -547,12 +547,8 @@ inline bool fromString(std::string_view str, fs::path& dst)
 	return true;
 }
 
-
-/*!
- * Convert any type to string.
- * The type must support std::format
- */
 template<typename T>
+	requires std::is_integral_v<T>
 std::string toString(const T& val)
 {
 	return std::format("{}", val);
@@ -614,6 +610,11 @@ struct std::formatter<cz::fs::path> : std::formatter<string_view>
 		return std::formatter<std::string_view>::format(cz::narrow(p.native()), ctx);
 	}
 };
+
+inline std::string toString(const cz::fs::path& p)
+{
+	return cz::narrow(p.native());
+}
 
 
 /*!
