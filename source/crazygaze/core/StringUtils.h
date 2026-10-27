@@ -662,3 +662,17 @@ struct Utf8CodePoints
 	}
 };
 
+/**
+ * Given a type a T, it defines a std::formatter so that type can be directly used in std::format.
+ * A `toString` function that returns a string like result (e.g std::string, std::string_view, const char*) is expected to exist.
+ */
+#define CZ_DEFINE_FORMATTER_FROM_TOSTRING(T)                     \
+	template <>                                                  \
+	struct std::formatter<T> : std::formatter<string_view>       \
+	{                                                            \
+		auto format(const T& v, std::format_context& ctx) const  \
+		{                                                        \
+			return std::format_to(ctx.out(), "{}", toString(v)); \
+		}                                                        \
+	};
+
