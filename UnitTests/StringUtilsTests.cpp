@@ -81,3 +81,35 @@ TEST_CASE("trim_wchar", "[StringUtils]")
 	CHECK(std::wstring( cz::trim(L""))                        == L"");
 }
 
+TEST_CASE("toString", "[StringUtils]")
+{
+	std::string a = "Hello world! HELLO WORLD!";
+
+	SECTION("Passing a std::string should result in returning a const &")
+	{
+		auto&& b = toString(a);
+		static_assert(std::is_same_v<decltype(b), const std::string&>);
+		CHECK(&a == &b); // same string object
+	}
+
+	SECTION("Passing a std::string should result in returning std::string")
+	{
+		auto getString = [&a]() -> std::string
+		{
+			return a;
+		};
+
+		auto&& b = toString(getString());
+		static_assert(std::is_same_v<decltype(toString(getString())), std::string>);
+		CHECK(a == b);
+	}
+
+	SECTION("Passing std::string_view should return a std::string_view")
+	{
+		auto&& b = toString(std::string_view(a));
+		static_assert(std::is_same_v<decltype(toString(std::string_view(a))), std::string_view>);
+		CHECK(std::string(a) == std::string(b));
+
+	}
+}
+

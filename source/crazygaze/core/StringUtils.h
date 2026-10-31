@@ -616,6 +616,31 @@ inline std::string toString(const cz::fs::path& p)
 	return cz::narrow(p.native());
 }
 
+/**
+ * This might look silly, but to have a true generic `toString` that can be used in any code
+ * regardless of T, toString needs to accept a string too.
+ */
+inline const std::string& toString(const std::string& v)
+{
+	return v;
+}
+
+/**
+ * Overload so that doing something like `toString(someFunc())` works, because if `someFunc` returns e.g `std::string`, then
+ * we need to keep the string alive.
+ */
+inline std::string toString(std::string&& v)
+{
+	return v;
+}
+
+/**
+ * Overload to avoid any heap allocation or copying
+ */
+inline std::string_view toString(std::string_view v)
+{
+	return v;
+}
 
 /*!
  * Given a codepoint, returns its UTF8 representation as a char array.
