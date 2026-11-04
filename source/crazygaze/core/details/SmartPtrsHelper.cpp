@@ -71,11 +71,11 @@ void TraceList::remove(struct SharedPtrTrace* trace)
 
 		DeletedPtrTrace& e = m_history.emplace_back();
 		e.traceInfo.type = trace->type;
-		e.traceInfo.timestamp = trace->timestamp;
+		e.traceInfo.ts = trace->timestamp;
 		e.traceInfo.frame = trace->frame;
 		e.traceInfo.trace = std::move(trace->trace);
 		// Information about when the deletion happened (right now)
-		e.deletionInfo.timestamp = std::chrono::high_resolution_clock::now();
+		e.deletionInfo.ts = std::chrono::high_resolution_clock::now();
 		e.deletionInfo.frame = gFrameCounter.load();
 	}
 

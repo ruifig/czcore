@@ -102,14 +102,14 @@ namespace details
 		struct
 		{
 			SharedPtrTraceType type;
-			std::chrono::high_resolution_clock::time_point timestamp;
+			std::chrono::high_resolution_clock::time_point ts;
 			uint64_t frame;
 			std::stacktrace trace;
 		} traceInfo;
 
 		struct
 		{
-			std::chrono::high_resolution_clock::time_point timestamp;
+			std::chrono::high_resolution_clock::time_point ts;
 			uint64_t frame;
 		} deletionInfo;
 	};
