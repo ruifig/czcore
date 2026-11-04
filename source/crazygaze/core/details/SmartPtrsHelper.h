@@ -85,40 +85,47 @@ namespace cz
 #if CZ_SHAREDPTR_STACKTRACES
 namespace details
 {
+
+	enum class SharedPtrTraceType
+	{
+		Creation,
+		StrongRef,
+		WeakRef
+	};
+
 	/**
-	 * Doubly linked list to keep track of stacktraces
+	 * Holds an old trace. 
+	 * Instances of this are used to build a tracing history (if enabled)
+	 */
+	struct DeletedPtrTrace
+	{
+		struct
+		{
+			SharedPtrTraceType type;
+			std::chrono::high_resolution_clock::time_point timestamp;
+			uint64_t frame;
+			std::stacktrace trace;
+		} traceInfo;
+
+		struct
+		{
+			std::chrono::high_resolution_clock::time_point timestamp;
+			uint64_t frame;
+		} deletionInfo;
+	};
+
+	/**
+	 * Keeps track of all traces of a given control block
 	 */
 	class TraceList
 	{
 	  public:
 
-		~TraceList()
-		{
-			// If this triggered, we probably have a bug somewhere where we forgot to remove entries.
-			assert(m_list.empty());
-		}
-
-		void add(struct SharedPtrTrace* trace)
-		{
-			m_lock.lock();
-			m_list.push_back(trace);
-			m_lock.unlock();
-		}
-
-		void remove(struct SharedPtrTrace* trace)
-		{
-			m_lock.lock();
-			cz::removeFirst(m_list, trace);
-			m_lock.unlock();
-		}
-
-		bool isEmpty()
-		{
-			m_lock.lock();
-			bool res = m_list.empty();
-			m_lock.unlock();
-			return res;
-		}
+		explicit TraceList(uint32_t maxHistorySize);
+		~TraceList();
+		void add(struct SharedPtrTrace* trace);
+		void remove(struct SharedPtrTrace* trace);
+		bool isEmpty();
 
 		template<typename F>
 		void visitAll(F&& f)
@@ -129,34 +136,44 @@ namespace details
 			m_lock.unlock();
 		}
 
+		template<typename F>
+		void visitHistory(F&& f)
+		{
+			m_lock.lock();
+			for(const DeletedPtrTrace& ele : m_history)
+				f(ele);
+			m_lock.unlock();
+		}
+
 		/**
 		 * Returns the first item (or nullptr if empty), and the total number of items.
 		 * This is used for debugging things at shutdown.
 		 */
-		std::pair<const SharedPtrTrace*, uint32_t> getFirstAndCount()
-		{
-			m_lock.lock();
-			SharedPtrTrace* res = m_list.empty() ? nullptr : m_list.front();
-			uint32_t size = static_cast<uint32_t>(m_list.size());
-			m_lock.unlock();
-			return {res, size};
-		}
+		std::pair<const SharedPtrTrace*, uint32_t> getFirstAndCount();
+
+		/**
+		 * Set's the trace's history maximum size. As-in, how many old traces to keep
+		 * Setting this to a value lower than current number of entries in the history will cause entries to
+		 * be dropped as part of the call.
+		 */
+		void setMaxHistorySize(uint32_t maxHistorySize);
 
 	  private:
 		std::vector<struct SharedPtrTrace*> m_list;
+
+		/**
+		 * If >0, then whenever a trace is deleted, its information is saved in m_history.
+		 * This lets an application study how a specific shared pointer is passed around.
+		 */
+		uint32_t m_maxHistorySize = 0;
+
+		std::deque<DeletedPtrTrace> m_history;
 		SpinLock m_lock;
 	};
 
 	struct SharedPtrTrace
 	{
-		enum class Type
-		{
-			Creation,
-			StrongRef,
-			WeakRef
-		};
-
-		explicit SharedPtrTrace(Type type, std::shared_ptr<TraceList> inOuter)
+		explicit SharedPtrTrace(SharedPtrTraceType type, std::shared_ptr<TraceList> inOuter)
 			: type(type)
 			, outer(std::move(inOuter))
 		{
@@ -175,7 +192,7 @@ namespace details
 				outer->remove(this);
 		}
 			
-		Type type;
+		SharedPtrTraceType type;
 		std::chrono::high_resolution_clock::time_point timestamp;
 		uint64_t frame;
 		std::stacktrace trace;
@@ -201,7 +218,7 @@ struct SharedPtrTraces
 		uint64_t frame;
 		std::stacktrace trace;
 	};
-	
+
 	/**
 	 * This is the stack trace of when the control block was created.
 	 * This does NOT represent an active reference. It's purpose is to help understand where the object was created,
@@ -211,20 +228,21 @@ struct SharedPtrTraces
 	Entry creationTrace;
 	std::vector<Entry> strong;
 	std::vector<Entry> weak;
+	std::vector<details::DeletedPtrTrace> history;
 };
 
 
 namespace details
 {
 	template<class T>
-	bool shouldCaptureStackTraces()
+	std::pair<bool, uint32_t> shouldCaptureStackTraces()
 	{
 		if constexpr (requires(T* p) { T::template captureSharedPtrStackTracesT<T>(); })
 			return T::template captureSharedPtrStackTracesT<T>();
 		else if constexpr (requires(T* p) { T::captureSharedPtrStackTraces(); })
 			return T::captureSharedPtrStackTraces();
 		else
-			return false;
+			return {false, 0};
 	}
 
 	/**
@@ -237,7 +255,7 @@ namespace details
 		virtual ~ControlBlockDetails();
 
 		#if CZ_SHAREDPTR_STACKTRACES
-		std::unique_ptr<SharedPtrTrace> createStackTrace(SharedPtrTrace::Type type);
+		std::unique_ptr<SharedPtrTrace> createStackTrace(SharedPtrTraceType type);
 		SharedPtrTraces getTraces();
 		uint64_t getTotalLifetimeTraces();
 
@@ -245,13 +263,24 @@ namespace details
 		std::unique_ptr<SharedPtrTrace> firstTrace_;
 
 		// Enabled stack tracing for this block, if not enabled already
-		void setTracing(bool enabled)
+		void setTracing(std::pair<bool, std::optional<uint32_t>> enabled)
 		{
 			CZ_CHECK(m_objBasePtr);
 
 			m_tracing([enabled](TracingData& data)
 			{
-				data.enabled = enabled;
+				data.enabled = enabled.first;
+				if (enabled.second.has_value())
+				{
+					// We could just create the TraceList here on the spot so we could pass down the history size, but that would mean
+					// that TraceList would be created even if `enabled` stayed at false for the entire lifetime of the object (wasteful)
+					// Therefore, if traceList doesn't exist, we just remember the value, and pass it down once traceList is created
+					if (data.traceList)
+						data.traceList->setMaxHistorySize(enabled.second.value());
+					else
+						data.defaultMaxHistorySize = enabled.second.value();
+				}
+
 			});
 		}
 
@@ -273,7 +302,7 @@ namespace details
 			setTracing(details::shouldCaptureStackTraces<T>());
 
 			if (!firstTrace_)
-				firstTrace_ = createStackTrace(SharedPtrTrace::Type::Creation);
+				firstTrace_ = createStackTrace(SharedPtrTraceType::Creation);
 		}
 		#else
 		template<typename T>
@@ -292,6 +321,9 @@ namespace details
 			// Once enabled, it will start creating creating traces, and once disable it stops creating
 			// traces BUT doesn't delete the previous ones.
 			bool enabled = false;
+
+			// This gets passed down to TraceList (once that is created)
+			uint32_t defaultMaxHistorySize = 0;
 
 			std::shared_ptr<TraceList> traceList;
 

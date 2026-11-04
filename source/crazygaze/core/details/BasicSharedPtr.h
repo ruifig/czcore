@@ -39,12 +39,17 @@ class BasicSharedRef;
  * - Both thread safe and non-thread safe version are supported. (typedef to SharedPtr<T>/WeakPtr<T> and LocalSharedPtr<T>/LocalWeakPtr<T>)
  * - Allows capturing stack traces for debugging purposes
  *		- Setting CZ_SHAREDPTR_STACKTRACES to 1 compiles in stack trace support, but enabling it for a specific class is opt-in.
- *		  You can enable it for a specific class by adding a `static bool captureSharedPtrStackTraces() { return true; }` method to the class. Alternatively, you can add a `template<typename T> static bool captureSharedPtrStackTracesT(){...}` method to the
- * class, which might make it easier to enable/disable stack traces for multiple classes in one place. The method can return
- * true/false based on any runtime condition, e.g, a command line argument or an environment variable.
+ *		  You can enable it for a specific class by adding a `static std::pair<bool, uint32_t> captureSharedPtrStackTraces() { return {true, 0}; }`
+ *		  method to the class. Alternatively, you can add a `template<typename T> static st::pair<bool, uint32_t> captureSharedPtrStackTracesT(){...}`
+ *		  method to the class, which might make it easier to enable/disable stack traces for multiple classes in one place.
+ *		  The returned `first` indicates if traces should be enabled, and `second` indicates how many dropped traces to keep in the history.
+ *		  Note that `second` is NOT to indicate how many traces to create. Traces for live strong/weak references are always kept. It is to
+ *		  keep dropped traces around (up to the value indicated by `second`). This allows the application to investigate how/where a particular object is
+ *		  being passed around.
  *		  By doing this, stack traces can be enabled/disabled at run-time:
  *			- Compile with CZ_SHAREDPTR_STACKTRACES set to 1. This adds little overhead by itself, but should still be disabled in release builds.
- *			- Add a `captureSharedPtrStackTraces` or `captureSharedPtrStackTracesT` method to the classes you want to capture stack traces for, and return true/false based on a runtime condition.
+ *			- Add a `captureSharedPtrStackTraces` or `captureSharedPtrStackTracesT` method to the classes you want to capture
+ *			  stack traces for, and return true/false based on a runtime condition.
  */
 template<typename T, bool MT>
 class BasicSharedPtr
@@ -254,11 +259,11 @@ class BasicSharedPtr
 	 *
 	 * IMPORTANT: Note that disabling tracing after being enabled doesn't delete previous traces.
 	 */
-	void setSharedPtrTracing(bool enabled) noexcept
+	void setSharedPtrTracing(bool enabled, std::optional<uint32_t> maxHistorySize /* = std::nullopt */) noexcept
 	{
 #if CZ_SHAREDPTR_STACKTRACES
 		if (m_control.ctrl)
-			m_control.ctrl->setTracing(enabled);
+			m_control.ctrl->setTracing({enabled, maxHistorySize});
 #endif
 	}
 
@@ -303,6 +308,7 @@ class BasicSharedPtr
 		static_assert(std::is_convertible_v<U*,T*>);
 		m_control.ctrl = reinterpret_cast<ControlBlock*>(control);
 #if CZ_SHAREDPTR_STACKTRACES
+		CZ_CHECK(m_control.trace == nullptr);
 		m_control.trace = nullptr;
 #endif
 		if (m_control.ctrl)
@@ -311,7 +317,7 @@ class BasicSharedPtr
 				m_control.ctrl->incStrong();
 
 #if CZ_SHAREDPTR_STACKTRACES
-			m_control.trace = m_control.ctrl->createStackTrace(details::SharedPtrTrace::Type::StrongRef);
+			m_control.trace = m_control.ctrl->createStackTrace(details::SharedPtrTraceType::StrongRef);
 #endif
 		}
 	}
@@ -524,7 +530,7 @@ class BasicWeakPtr
 		{
 			m_control.ctrl->incWeak();
 #if CZ_SHAREDPTR_STACKTRACES
-			m_control.trace = m_control.ctrl->createStackTrace(details::SharedPtrTrace::Type::WeakRef);
+			m_control.trace = m_control.ctrl->createStackTrace(details::SharedPtrTraceType::WeakRef);
 #endif
 		}
 	}
@@ -782,10 +788,10 @@ class BasicEnableSharedFromThis
 		}
 	}
 
-	void setSharedPtrTracing(bool enabled)
+	void setSharedPtrTracing(bool enabled, std::optional<uint32_t> maxHistorySize /* = std::nullopt */)
 	{
 		#if CZ_SHAREDPTR_STACKTRACES
-		getControlBlock()->setTracing(enabled);
+		getControlBlock()->setTracing({enabled, maxHistorySize});
 		#endif
 	}
 

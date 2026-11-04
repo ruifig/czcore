@@ -10,7 +10,13 @@ struct WrongBase
 
 #define THREADSAFE 1
 
-bool gCaptureStackTraces = true;
+#if CZ_SHAREDPTR_STACKTRACES
+	#define CAPTURE_STACKTRACES 1
+#else
+	#define CAPTURE_STACKTRACES 0
+#endif
+
+bool gCaptureStackTraces = CAPTURE_STACKTRACES;
 
 struct Base :
 #if THREADSAFE
@@ -20,9 +26,9 @@ struct Base :
 #endif
 {
 
-	static bool captureSharedPtrStackTraces()
+	static std::pair<bool, uint32_t> captureSharedPtrStackTraces()
 	{
-		return gCaptureStackTraces;
+		return {gCaptureStackTraces, 10};
 	}
 
 	Base()
@@ -803,6 +809,73 @@ TEST_CASE("Memory clear", "[SmartPointers]")
 }
 
 #endif
+
+TEST_CASE("Traces", "[SmartPointers]")
+{
+	Ptr<Foo> ptr1 = cz::details::basicMakeShared<Foo, THREADSAFE>();
+	auto t1 = ptr1.getTraces();
+	Ptr<Foo> ptr2 = cz::details::basicMakeShared<Foo, THREADSAFE>();
+	auto t2 = ptr2.getTraces();
+
+	ptr1.setSharedPtrTracing(true);
+
+#if CAPTURE_STACKTRACES
+	CHECK(t1.strong.size() == 1);
+	CHECK(t2.strong.size() == 1);
+	CHECK(t1.weak.size() == 0);
+	CHECK(t2.weak.size() == 0);
+#endif
+
+	ptr1 = ptr2;
+	t1 = ptr1.getTraces();
+	t2 = ptr2.getTraces();
+#if CAPTURE_STACKTRACES
+	CHECK(t1.strong.size() == 2);
+	CHECK(t2.strong.size() == 2);
+	CHECK(t1.weak.size() == 0);
+	CHECK(t2.weak.size() == 0);
+#endif
+
+	{
+		WPtr<Foo> w = ptr1;
+		t1 = ptr1.getTraces();
+#if CAPTURE_STACKTRACES
+		CHECK(t1.strong.size() == 2);
+		CHECK(t1.weak.size() == 1);
+#endif
+		auto p = w.lock();
+		CHECK(p != nullptr);
+	}
+
+	ptr1 = std::move(ptr2);
+	t1 = ptr1.getTraces();
+	t2 = ptr2.getTraces();
+#if CAPTURE_STACKTRACES
+	CHECK(t1.strong.size() == 1);
+	CHECK(t2.strong.size() == 0);
+	CHECK(t1.weak.size() == 0);
+	CHECK(t2.weak.size() == 0);
+#endif
+
+	{
+#if CAPTURE_STACKTRACES
+		CHECK(t1.history.size() > 1);
+#endif
+		ptr1.setSharedPtrTracing(true, 1);
+		t1 = ptr1.getTraces();
+#if CAPTURE_STACKTRACES
+		CHECK(t1.history.size() == 1);
+#endif
+	}
+
+	{
+		WPtr<Foo> w = ptr1;
+		ptr1 = nullptr;
+		ptr2 = nullptr;
+		t1 = w.getTraces();
+	}
+
+}
 
 TEST_CASE("SharedRef", "[SmartPointers]")
 {
