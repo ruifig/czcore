@@ -182,6 +182,14 @@ class File
 				return "";
 		}
 
+		std::span<uint8_t> to_span() const
+		{
+			if (isValid())
+				return std::span<uint8_t>(reinterpret_cast<uint8_t*>(ptr), size);
+			else
+				return {};
+		}
+
 		uint8_t* begin()             { return ptr; }
 		uint8_t* end()               { return ptr + size; }
 		const uint8_t* begin() const { return ptr; }
