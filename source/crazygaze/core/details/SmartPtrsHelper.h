@@ -228,7 +228,9 @@ struct SharedPtrTraces
 	Entry creationTrace;
 	std::vector<Entry> strong;
 	std::vector<Entry> weak;
+#if CZ_SHAREDPTR_STACKTRACES
 	std::vector<details::DeletedPtrTrace> history;
+#endif
 };
 
 
