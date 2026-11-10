@@ -222,10 +222,13 @@ public:
 			return *this;
 		}
 
-		// Intentionally returning a pointer instead of a reference.
-		// This is because a DoublyLinkedList<T> "stores" pointers, and not values.
-		// Might look unusual in a for ranged-loop, so feel free to disagree. :)
-		Item* operator*() const
+		Item& operator*() const
+		{
+			assert(m_value);
+			return *m_value;
+		}
+
+		Item* operator->() const
 		{
 			assert(m_value);
 			return m_value;
