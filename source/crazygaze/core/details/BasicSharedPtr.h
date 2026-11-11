@@ -701,6 +701,17 @@ class BasicSharedRef
 		return m_ptr;
 	}
 
+	/**
+	 * Implicit conversion to SharedPtr<BaseT>, so APIs taking a SharedPtr<BaseT> can accept a SharedRef<T> without
+	 * change.
+	 */
+	template<typename BaseT>
+		requires(std::is_base_of_v<BaseT, T>)
+	operator BasicSharedPtr<BaseT, MT>() const noexcept
+	{
+		return m_ptr;
+	}
+
 	void swap(BasicSharedRef& other) noexcept
 	{
 		m_ptr.swap(other.m_ptr);
