@@ -7,16 +7,25 @@ namespace cz
 {
 
 /**
- * Convert a utf16/32 to utf8
+ * Converts a UTF-16 or UTF-32 string to UTF-8.
+ * std::wstring is UTF-16 or UTF-32 depending on the OS (UTF-16 on Windows).
+ *
+ * Invalid input doesn't fail the conversion. Each invalid code unit is converted to U+FFFD (the replacement character),
+ * so the result is always valid UTF-8. Invalid code units are:
+ * - UTF-16: Unpaired surrogates (e.g. Windows file names can have those)
+ * - UTF-32: Surrogates, and values above U+10FFFF
  */
 std::string narrow(std::wstring_view str);
 std::string narrow(std::u16string_view str);
 std::string narrow(std::u32string_view str);
 
 /**
- * Converts a utf8 string to a wide string (OS dependent).
- * std::wstring character width is OS dependent, so this fucntion is handy when interacting with the OS or some of the STL. E.g,
+ * Converts a UTF-8 string to a wide string (OS dependent).
+ * std::wstring character width is OS dependent, so this function is handy when interacting with the OS or some of the STL. E.g,
  * opening a file.
+ *
+ * Invalid input doesn't fail the conversion. Each invalid UTF-8 sequence is converted to U+FFFD (the replacement
+ * character), the same way as Utf8CodePoints.
  */
  std::wstring widen(std::string_view str);
 
@@ -665,25 +674,116 @@ inline std::array<char, 5> codepointToUtf8(uint32_t cp)
  * }
  * ```
  *
- * It doesn't check if the string is valid UTF8, so use it only with valid UTF8 strings.
+ * Invalid UTF8 doesn't break the iteration: Each invalid sequence yields one REPLACEMENT_CHARACTER (U+FFFD), the same way
+ * `utf8::replace_invalid` handles it. This means it's safe to use with text from untrusted sources (e.g. data files, user
+ * input or the network).
  * If you want to check if a string is valid UTF8, use `utf8::is_valid()`.
  *
  */
 struct Utf8CodePoints
 {
+	static constexpr uint32_t REPLACEMENT_CHARACTER = 0xFFFD;
+
 	std::string_view text;
 
-	using BaseIt = std::string_view::const_iterator;
-	using Iterator = utf8::unchecked::iterator<BaseIt>;
+	class Iterator
+	{
+	  public:
+		using iterator_category = std::forward_iterator_tag;
+		using value_type = uint32_t;
+		using difference_type = std::ptrdiff_t;
+		using pointer = const uint32_t*;
+		using reference = uint32_t;
+
+		Iterator() = default;
+
+		Iterator(const char* pos, const char* end)
+			: m_pos(pos)
+			, m_end(end)
+		{
+			decode();
+		}
+
+		uint32_t operator*() const
+		{
+			return m_cp;
+		}
+
+		Iterator& operator++()
+		{
+			m_pos = m_next;
+			decode();
+			return *this;
+		}
+
+		Iterator operator++(int)
+		{
+			Iterator tmp = *this;
+			++*this;
+			return tmp;
+		}
+
+		bool operator==(const Iterator& other) const
+		{
+			return m_pos == other.m_pos;
+		}
+
+	  private:
+		// Decodes the code point at m_pos, and finds where the next one starts
+		void decode()
+		{
+			if (m_pos == m_end)
+			{
+				m_next = m_end;
+				return;
+			}
+
+			m_next = m_pos;
+			utf8::utfchar32_t cp = 0;
+			switch (utf8::internal::validate_next(m_next, m_end, cp))
+			{
+			case utf8::internal::UTF8_OK:
+				m_cp = cp;
+				return;
+
+			case utf8::internal::NOT_ENOUGH_ROOM:
+				// Truncated sequence at the end of the string
+				m_next = m_end;
+				break;
+
+			case utf8::internal::INVALID_LEAD:
+				// Stray byte (e.g. a lone trail byte). Skip just that byte.
+				m_next = m_pos + 1;
+				break;
+
+			case utf8::internal::INCOMPLETE_SEQUENCE:
+			case utf8::internal::OVERLONG_SEQUENCE:
+			case utf8::internal::INVALID_CODE_POINT:
+			default:
+				// Skip the lead byte, and any trail bytes that follow it
+				m_next = m_pos + 1;
+				while (m_next != m_end && utf8::internal::is_trail(*m_next))
+					++m_next;
+				break;
+			}
+
+			m_cp = REPLACEMENT_CHARACTER;
+		}
+
+		const char* m_pos = nullptr;
+		const char* m_next = nullptr;
+		const char* m_end = nullptr;
+		uint32_t m_cp = 0;
+	};
 
 	Iterator begin() const
 	{
-		return Iterator(text.begin());
+		return Iterator(text.data(), text.data() + text.size());
 	}
 
 	Iterator end() const
 	{
-		return Iterator(text.end());
+		return Iterator(text.data() + text.size(), text.data() + text.size());
 	}
 };
 

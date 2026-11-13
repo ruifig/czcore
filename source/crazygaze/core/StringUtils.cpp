@@ -6,48 +6,45 @@ namespace cz
 namespace
 {
 
-// As far as I've noticed, utfcpp doesn't have a ready to use function to validate a UTF16 string,
-// so this based on the utf8::utf16to8 function. Instead of throwing we return a boolean.
-template <typename u16bit_iterator>
-bool isValidUtf16_Impl(u16bit_iterator start, u16bit_iterator end)
-{
-	while (start != end) {
-		uint32_t cp = utf8::internal::mask16(*start++);
-		// Take care of surrogate pairs first
-		if (utf8::internal::is_lead_surrogate(cp)) {
-			if (start != end) {
-				uint32_t trail_surrogate = utf8::internal::mask16(*start++);
-				if (utf8::internal::is_trail_surrogate(trail_surrogate))
-					cp = (cp << 10) + trail_surrogate + utf8::internal::SURROGATE_OFFSET;
-				else
-					return false; // throw invalid_utf16(static_cast<uint16_t>(trail_surrogate));
-			}
-			else
-				return false; // throw invalid_utf16(static_cast<uint16_t>(cp));
-
-		}
-		// Lone trail surrogate
-		else if (utf8::internal::is_trail_surrogate(cp))
-			return false; // throw invalid_utf16(static_cast<uint16_t>(cp));
-	}
-
-	return true;
-}
+constexpr uint32_t REPLACEMENT_CHARACTER = 0xFFFD;
 
 // unchecked::utf16to8 can crash if given invalid input. See https://github.com/nemtrif/utfcpp/issues/78
 // The author wants to leave it as-is, since it's in the "unckecked" namespace, so we have this function copied and adapted.
+// Unpaired surrogates are converted to REPLACEMENT_CHARACTER, so the result is always valid UTF-8.
 template <typename u16bit_iterator, typename octet_iterator>
 octet_iterator utf16to8_lenient (u16bit_iterator start, u16bit_iterator end, octet_iterator result)
 {
-	while (start != end) {
+	while (start != end)
+	{
 		uint32_t cp = utf8::internal::mask16(*start++);
-		// Take care of surrogate pairs first
-		if (utf8::internal::is_lead_surrogate(cp)) {
-			if (start >= end) // >>>> This is the change compared to the original code
-				return result;
-			uint32_t trail_surrogate = utf8::internal::mask16(*start++);
-			cp = (cp << 10) + trail_surrogate + utf8::internal::SURROGATE_OFFSET;
+		if (utf8::internal::is_lead_surrogate(cp))
+		{
+			if (start != end && utf8::internal::is_trail_surrogate(utf8::internal::mask16(*start)))
+				cp = (cp << 10) + utf8::internal::mask16(*start++) + utf8::internal::SURROGATE_OFFSET;
+			else
+				cp = REPLACEMENT_CHARACTER;	// Unpaired lead surrogate. The next unit is not consumed, since it's not part of the pair
 		}
+		else if (utf8::internal::is_trail_surrogate(cp))
+		{
+			cp = REPLACEMENT_CHARACTER;	// Lone trail surrogate
+		}
+
+		result = utf8::unchecked::append(cp, result);
+	}
+	return result;
+}
+
+// Same as unchecked::utf32to8, but invalid code points (surrogates, and values above U+10FFFF) are converted to
+// REPLACEMENT_CHARACTER, so the result is always valid UTF-8.
+template <typename u32bit_iterator, typename octet_iterator>
+octet_iterator utf32to8_lenient(u32bit_iterator start, u32bit_iterator end, octet_iterator result)
+{
+	while (start != end)
+	{
+		uint32_t cp = static_cast<uint32_t>(*start++);
+		if (!utf8::internal::is_code_point_valid(cp))
+			cp = REPLACEMENT_CHARACTER;
+
 		result = utf8::unchecked::append(cp, result);
 	}
 	return result;
@@ -59,13 +56,15 @@ octet_iterator utf16to8_lenient (u16bit_iterator start, u16bit_iterator end, oct
 std::wstring widen(std::string_view str)
 {
 	std::wstring result;
-	if constexpr(sizeof(std::wstring::value_type)==2)
+	result.reserve(str.size());
+
+	// NOTE: Decoding with Utf8CodePoints, since the utfcpp unchecked conversions read out of bounds on invalid UTF8
+	for (uint32_t cp : Utf8CodePoints{str})
 	{
-		utf8::unchecked::utf8to16(str.begin(), str.end(), std::back_inserter(result));
-	}
-	else
-	{
-		utf8::unchecked::utf8to32(str.begin(), str.end(), std::back_inserter(result));
+		if constexpr(sizeof(std::wstring::value_type)==2)
+			utf8::unchecked::append16(cp, std::back_inserter(result));
+		else
+			result.push_back(static_cast<wchar_t>(cp));
 	}
 	return result;
 }
@@ -79,7 +78,7 @@ std::string narrow(std::wstring_view str)
 	}
 	else
 	{
-		utf8::unchecked::utf32to8(str.begin(), str.end(), std::back_inserter(result));
+		utf32to8_lenient(str.begin(), str.end(), std::back_inserter(result));
 	}
 	return result;
 }
@@ -94,7 +93,7 @@ std::string narrow(std::u16string_view str)
 std::string narrow(std::u32string_view str)
 {
 	std::string result;
-	utf8::unchecked::utf32to8(str.begin(), str.end(), std::back_inserter(result));
+	utf32to8_lenient(str.begin(), str.end(), std::back_inserter(result));
 	return result;
 }
 
