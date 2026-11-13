@@ -589,7 +589,7 @@ class HandleImpl : public BaseHandleImpl<T, DataType>
 	 * Creates a new T and returns the handle.
 	 */
 	template<typename... Args>
-	static HandleImpl<T, DataType> create(Args&&... args) requires !ObserverOnly
+	static HandleImpl<T, DataType> create(Args&&... args) requires (!ObserverOnly)
 	{
 		using HandleType = HandleImpl<T, DataType>;
 		return createImpl<HandleType>(std::forward<Args>(args)...);
@@ -651,7 +651,7 @@ class HandleImpl : public BaseHandleImpl<T, DataType>
 	 * Destroys the T it points to and clears the handle.
 	 * Any handles still pointing to this T will them be invalid.
 	 */
-	void release() requires !ObserverOnly
+	void release() requires (!ObserverOnly)
 	{
 		if (meta.all == 0)
 			return;
