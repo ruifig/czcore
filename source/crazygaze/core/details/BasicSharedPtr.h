@@ -259,7 +259,7 @@ class BasicSharedPtr
 	 *
 	 * IMPORTANT: Note that disabling tracing after being enabled doesn't delete previous traces.
 	 */
-	void setSharedPtrTracing(bool enabled, std::optional<uint32_t> maxHistorySize /* = std::nullopt */) noexcept
+	void setSharedPtrTracing(bool enabled, std::optional<uint32_t> maxHistorySize = std::nullopt) noexcept
 	{
 #if CZ_SHAREDPTR_STACKTRACES
 		if (m_control.ctrl)
